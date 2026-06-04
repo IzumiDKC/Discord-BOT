@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 const DEFAULT_MUSIC_VOLUME = 55;
 const MUSIC_BITRATE = 128_000;
+const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -30,9 +31,11 @@ module.exports = {
           metadata: {
             channel: interaction.channel,
             requestedBy: interaction.user,
+            normalizationEnabled: true,
           },
           selfDeaf: true,
           volume: DEFAULT_MUSIC_VOLUME,
+          defaultFFmpegFilters: NORMALIZATION_FILTERS,
           leaveOnEmpty: true,
           leaveOnEmptyCooldown: 60_000,
           leaveOnEnd: true,
@@ -48,6 +51,7 @@ module.exports = {
         queue.setMetadata({
           channel: interaction.channel,
           requestedBy: interaction.user,
+          normalizationEnabled: queue.metadata?.normalizationEnabled ?? true,
         });
         queue.node.setBitrate(MUSIC_BITRATE);
       }
