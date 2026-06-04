@@ -27,6 +27,8 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
 (async () => {
   await client.player.extractors.loadMulti(DefaultExtractors);
   await client.player.extractors.register(YoutubeiExtractor, {
+    useYoutubeDL: true,
+    logLevel: 'LOW',
     streamOptions: {
       useClient: 'WEB',
     },
@@ -45,6 +47,7 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   });
 
   client.player.events.on('emptyQueue', queue => {
+    if (queue.currentTrack) return;
     queue.metadata?.channel?.send('Het hang cho nhac.').catch(() => {});
   });
 
