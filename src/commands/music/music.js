@@ -4,19 +4,19 @@ const { QueueRepeatMode } = require('discord-player');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('music')
-    .setDescription('Dieu khien nhac')
-    .addSubcommand(s => s.setName('skip').setDescription('Bo qua bai hien tai'))
-    .addSubcommand(s => s.setName('stop').setDescription('Dung va xoa hang cho'))
-    .addSubcommand(s => s.setName('pause').setDescription('Tam dung'))
-    .addSubcommand(s => s.setName('resume').setDescription('Tiep tuc phat'))
-    .addSubcommand(s => s.setName('loop').setDescription('Bat/tat lap lai bai hien tai'))
-    .addSubcommand(s => s.setName('queue').setDescription('Xem hang cho'))
-    .addSubcommand(s => s.setName('nowplaying').setDescription('Xem bai dang phat'))
+    .setDescription('Control music playback')
+    .addSubcommand(s => s.setName('skip').setDescription('Skip the current track'))
+    .addSubcommand(s => s.setName('stop').setDescription('Stop playback and clear the queue'))
+    .addSubcommand(s => s.setName('pause').setDescription('Pause playback'))
+    .addSubcommand(s => s.setName('resume').setDescription('Resume playback'))
+    .addSubcommand(s => s.setName('loop').setDescription('Toggle repeat for the current track'))
+    .addSubcommand(s => s.setName('queue').setDescription('Show the music queue'))
+    .addSubcommand(s => s.setName('nowplaying').setDescription('Show the current track'))
     .addSubcommand(s =>
       s.setName('volume')
-        .setDescription('Chinh am luong (0-100)')
+        .setDescription('Set the volume (0-100)')
         .addIntegerOption(o =>
-          o.setName('level').setDescription('Muc am luong').setRequired(true).setMinValue(0).setMaxValue(100)
+          o.setName('level').setDescription('Volume level').setRequired(true).setMinValue(0).setMaxValue(100)
         )
     ),
 
@@ -25,27 +25,27 @@ module.exports = {
     const queue = client.player.nodes.get(interaction.guildId);
 
     if (!queue || (!queue.currentTrack && queue.isEmpty())) {
-      return interaction.reply({ content: 'Khong co nhac nao dang phat.', ephemeral: true });
+      return interaction.reply({ content: 'There is no music playing right now.', ephemeral: true });
     }
 
     switch (sub) {
       case 'skip': {
         const skipped = queue.node.skip();
-        return interaction.reply(skipped ? 'Da bo qua bai hien tai.' : 'Khong the skip luc nay.');
+        return interaction.reply(skipped ? 'Skipped the current track.' : 'Unable to skip right now.');
       }
 
       case 'stop':
         queue.delete();
-        return interaction.reply('Da dung nhac va xoa hang cho.');
+        return interaction.reply('Stopped playback and cleared the queue.');
 
       case 'pause': {
         const paused = queue.node.pause();
-        return interaction.reply(paused ? 'Da tam dung.' : 'Khong the tam dung luc nay.');
+        return interaction.reply(paused ? 'Playback paused.' : 'Unable to pause right now.');
       }
 
       case 'resume': {
         const resumed = queue.node.resume();
-        return interaction.reply(resumed ? 'Tiep tuc phat.' : 'Khong the tiep tuc luc nay.');
+        return interaction.reply(resumed ? 'Playback resumed.' : 'Unable to resume right now.');
       }
 
       case 'loop': {
@@ -53,23 +53,23 @@ module.exports = {
           ? QueueRepeatMode.OFF
           : QueueRepeatMode.TRACK;
         queue.setRepeatMode(nextMode);
-        return interaction.reply(nextMode === QueueRepeatMode.TRACK ? 'Da bat lap lai bai hien tai.' : 'Da tat lap lai.');
+        return interaction.reply(nextMode === QueueRepeatMode.TRACK ? 'Current track repeat is now enabled.' : 'Current track repeat is now disabled.');
       }
 
       case 'queue': {
         const tracks = queue.tracks.toArray();
         const list = tracks
           .slice(0, 10)
-          .map((t, i) => `\`${i + 1}.\` ${t.cleanTitle || t.title} - \`${t.duration || 'Khong ro'}\``)
-          .join('\n') || '_Khong co bai nao_';
+          .map((t, i) => `\`${i + 1}.\` ${t.cleanTitle || t.title} - \`${t.duration || 'Unknown'}\``)
+          .join('\n') || '_No tracks queued_';
 
         const current = queue.currentTrack;
         const embed = new EmbedBuilder()
           .setColor(0x5865F2)
-          .setTitle('Hang cho nhac')
+          .setTitle('Music queue')
           .addFields(
-            { name: 'Dang phat', value: current ? `${current.cleanTitle || current.title}` : '_Khong co_', inline: false },
-            { name: `Tiep theo (${tracks.length} bai)`, value: list, inline: false },
+            { name: 'Now playing', value: current ? `${current.cleanTitle || current.title}` : '_Nothing_', inline: false },
+            { name: `Up next (${tracks.length} tracks)`, value: list, inline: false },
           );
 
         return interaction.reply({ embeds: [embed] });
@@ -77,18 +77,18 @@ module.exports = {
 
       case 'nowplaying': {
         const track = queue.currentTrack;
-        if (!track) return interaction.reply({ content: 'Khong co gi dang phat.', ephemeral: true });
+        if (!track) return interaction.reply({ content: 'Nothing is playing right now.', ephemeral: true });
 
         const timestamp = queue.node.getTimestamp();
         const progress = queue.node.createProgressBar({ length: 14 }) || '';
         const embed = new EmbedBuilder()
           .setColor(0x1DB954)
-          .setTitle('Dang phat')
+          .setTitle('Now playing')
           .setDescription(`**[${track.cleanTitle || track.title}](${track.url})**`)
           .addFields(
-            { name: 'Tien do', value: timestamp ? `${progress}\n${timestamp.current.label} / ${timestamp.total.label}` : 'Khong ro', inline: false },
-            { name: 'Yeu cau boi', value: track.requestedBy?.username || '?', inline: true },
-            { name: 'Loop', value: queue.repeatMode === QueueRepeatMode.TRACK ? 'Bat' : 'Tat', inline: true },
+            { name: 'Progress', value: timestamp ? `${progress}\n${timestamp.current.label} / ${timestamp.total.label}` : 'Unknown', inline: false },
+            { name: 'Requested by', value: track.requestedBy?.username || '?', inline: true },
+            { name: 'Loop', value: queue.repeatMode === QueueRepeatMode.TRACK ? 'On' : 'Off', inline: true },
           )
           .setThumbnail(track.thumbnail || null);
 
@@ -98,7 +98,7 @@ module.exports = {
       case 'volume': {
         const level = interaction.options.getInteger('level', true);
         queue.node.setVolume(level);
-        return interaction.reply(`Am luong: ${level}%`);
+        return interaction.reply(`Volume set to ${level}%.`);
       }
     }
   },
