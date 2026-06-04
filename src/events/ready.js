@@ -1,9 +1,9 @@
 // Danh sách status xoay vòng
 const statuses = [
-  { type: 'PLAYING', text: '🎮  với Hùng Canh Mộ' },
-  { type: 'LISTENING', text: '🎵 nhạc với Dùng Thanh Nộ' },
-  { type: 'WATCHING', text: '👁️ Mixue' },
-  { type: 'STREAMING', text: '📺 con chó Cao Bằng Bộ PC' },
+  { type: 'PLAYING', text: '🎮  LIÊN QUÂN HUYỀN THOẠI' },
+  // { type: 'LISTENING', text: '🎵 nhạc với Dùng Thanh Nộ' },
+  // { type: 'WATCHING', text: '👁️ Mixue' },
+  // { type: 'STREAMING', text: '📺 con chó Cao Bằng Bộ PC' },
 ];
 
 let index = 0;
@@ -16,15 +16,15 @@ module.exports = {
 
     const setStatus = () => {
       const s = statuses[index % statuses.length];
-    client.user.setPresence({
+      client.user.setPresence({
         activities: [{ name: s.text, type: activityType(s.type) }],
-      status: 'online',
-    });
+        status: 'online',
+      });
       index++;
     };
 
     setStatus();
-    setInterval(setStatus, 15_000); 
+    setInterval(setStatus, 15_000);
   },
 };
 
