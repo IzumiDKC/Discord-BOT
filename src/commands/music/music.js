@@ -1,6 +1,20 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { QueueRepeatMode } = require('discord-player');
 
+function trackTitle(track) {
+  return track?.cleanTitle || track?.title || 'Unknown track';
+}
+
+function trackLine(track, index) {
+  const title = trackTitle(track);
+  const duration = track.duration || 'Unknown';
+  return `\`${String(index + 1).padStart(2, '0')}\` [${title}](${track.url}) - \`${duration}\``;
+}
+
+function loopLabel(queue) {
+  return queue.repeatMode === QueueRepeatMode.TRACK ? 'Track' : 'Off';
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('music')
@@ -58,19 +72,25 @@ module.exports = {
 
       case 'queue': {
         const tracks = queue.tracks.toArray();
+        const current = queue.currentTrack;
         const list = tracks
           .slice(0, 10)
-          .map((t, i) => `\`${i + 1}.\` ${t.cleanTitle || t.title} - \`${t.duration || 'Unknown'}\``)
-          .join('\n') || '_No tracks queued_';
+          .map(trackLine)
+          .join('\n') || '_No tracks queued. Add one with `/play`._';
 
-        const current = queue.currentTrack;
         const embed = new EmbedBuilder()
           .setColor(0x5865F2)
-          .setTitle('Music queue')
+          .setAuthor({ name: 'Music Queue' })
+          .setTitle(current ? trackTitle(current) : 'Nothing playing')
+          .setDescription(current ? `[Open track](${current.url})` : '_Nothing is playing right now._')
           .addFields(
-            { name: 'Now playing', value: current ? `${current.cleanTitle || current.title}` : '_Nothing_', inline: false },
-            { name: `Up next (${tracks.length} tracks)`, value: list, inline: false },
-          );
+            { name: 'Duration', value: current?.duration || 'Unknown', inline: true },
+            { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
+            { name: 'Loop', value: loopLabel(queue), inline: true },
+            { name: `Up next (${tracks.length})`, value: list, inline: false },
+          )
+          .setFooter({ text: tracks.length > 10 ? `Showing 10 of ${tracks.length} queued tracks` : 'Use /music skip, pause, resume, volume, or stop' })
+          .setThumbnail(current?.thumbnail || null);
 
         return interaction.reply({ embeds: [embed] });
       }
@@ -83,13 +103,16 @@ module.exports = {
         const progress = queue.node.createProgressBar({ length: 14 }) || '';
         const embed = new EmbedBuilder()
           .setColor(0x1DB954)
-          .setTitle('Now playing')
-          .setDescription(`**[${track.cleanTitle || track.title}](${track.url})**`)
+          .setAuthor({ name: 'Now Playing' })
+          .setTitle(trackTitle(track))
+          .setURL(track.url)
           .addFields(
             { name: 'Progress', value: timestamp ? `${progress}\n${timestamp.current.label} / ${timestamp.total.label}` : 'Unknown', inline: false },
+            { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
             { name: 'Requested by', value: track.requestedBy?.username || '?', inline: true },
-            { name: 'Loop', value: queue.repeatMode === QueueRepeatMode.TRACK ? 'On' : 'Off', inline: true },
+            { name: 'Loop', value: loopLabel(queue), inline: true },
           )
+          .setFooter({ text: `${track.source || 'unknown'} source` })
           .setThumbnail(track.thumbnail || null);
 
         return interaction.reply({ embeds: [embed] });

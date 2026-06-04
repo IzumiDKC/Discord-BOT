@@ -54,12 +54,15 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(searchResult?.playlist ? 'Playlist added' : 'Added to queue')
-        .setDescription(`**[${track.cleanTitle || track.title}](${track.url})**`)
+        .setAuthor({ name: searchResult?.playlist ? 'Playlist Added' : 'Added to Queue' })
+        .setTitle(track.cleanTitle || track.title)
+        .setURL(track.url)
         .addFields(
           { name: 'Duration', value: track.duration || 'Unknown', inline: true },
           { name: 'Source', value: track.source || 'unknown', inline: true },
+          { name: 'Requested by', value: interaction.user.username, inline: true },
         )
+        .setFooter({ text: 'Use /music queue to see what is coming up next' })
         .setThumbnail(track.thumbnail || null);
 
       return interaction.editReply({ embeds: [embed] });
