@@ -4,6 +4,8 @@ const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
 
+const MUSIC_BITRATE = 128_000;
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -31,10 +33,16 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
     logLevel: 'LOW',
     streamOptions: {
       useClient: 'WEB',
+      highWaterMark: 1 << 25,
     },
   });
 
   client.player.events.on('playerStart', (queue, track) => {
+    try {
+      queue.node.setBitrate(MUSIC_BITRATE);
+    } catch (err) {
+      console.warn('[Music Bitrate Warning]', err.message);
+    }
     queue.metadata?.channel?.send(`Now playing: **${track.cleanTitle || track.title}**`).catch(() => {});
   });
 

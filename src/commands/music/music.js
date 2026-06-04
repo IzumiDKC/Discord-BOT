@@ -98,7 +98,8 @@ module.exports = {
       case 'volume': {
         const level = interaction.options.getInteger('level', true);
         queue.node.setVolume(level);
-        return interaction.reply(`Volume set to ${level}%.`);
+        const warning = level > 75 ? ' Higher volume can cause clipping; 40-70% is usually cleaner.' : '';
+        return interaction.reply(`Volume set to ${level}%.${warning}`);
       }
     }
   },
