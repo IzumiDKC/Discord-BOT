@@ -1,5 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
+const DEFAULT_MUSIC_VOLUME = 55;
+const MUSIC_BITRATE = 128_000;
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
@@ -29,14 +32,14 @@ module.exports = {
             requestedBy: interaction.user,
           },
           selfDeaf: true,
-          volume: 80,
+          volume: DEFAULT_MUSIC_VOLUME,
           leaveOnEmpty: true,
           leaveOnEmptyCooldown: 60_000,
           leaveOnEnd: true,
           leaveOnEndCooldown: 60_000,
           leaveOnStop: true,
           leaveOnStopCooldown: 10_000,
-          bufferingTimeout: 15_000,
+          bufferingTimeout: 30_000,
         },
       });
 
@@ -46,6 +49,7 @@ module.exports = {
           channel: interaction.channel,
           requestedBy: interaction.user,
         });
+        queue.node.setBitrate(MUSIC_BITRATE);
       }
 
       const embed = new EmbedBuilder()
