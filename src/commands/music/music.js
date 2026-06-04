@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { QueueRepeatMode } = require('discord-player');
 
+const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
+
 function trackTitle(track) {
   return track?.cleanTitle || track?.title || 'Unknown track';
 }
@@ -15,6 +17,20 @@ function loopLabel(queue) {
   return queue.repeatMode === QueueRepeatMode.TRACK ? 'Track' : 'Off';
 }
 
+function isNormalizationEnabled(queue) {
+  return NORMALIZATION_FILTERS.every(filter => queue.filters.ffmpeg.filters.includes(filter));
+}
+
+async function setNormalization(queue, enabled) {
+  const currentFilters = queue.filters.ffmpeg.filters.filter(filter => !NORMALIZATION_FILTERS.includes(filter));
+  const nextFilters = enabled ? [...currentFilters, ...NORMALIZATION_FILTERS] : currentFilters;
+  await queue.filters.ffmpeg.setFilters(nextFilters);
+  queue.setMetadata({
+    ...queue.metadata,
+    normalizationEnabled: enabled,
+  });
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('music')
@@ -24,6 +40,13 @@ module.exports = {
     .addSubcommand(s => s.setName('pause').setDescription('Pause playback'))
     .addSubcommand(s => s.setName('resume').setDescription('Resume playback'))
     .addSubcommand(s => s.setName('loop').setDescription('Toggle repeat for the current track'))
+    .addSubcommand(s =>
+      s.setName('normalize')
+        .setDescription('Toggle loudness normalization')
+        .addBooleanOption(o =>
+          o.setName('enabled').setDescription('Enable or disable loudness normalization')
+        )
+    )
     .addSubcommand(s => s.setName('queue').setDescription('Show the music queue'))
     .addSubcommand(s => s.setName('nowplaying').setDescription('Show the current track'))
     .addSubcommand(s =>
@@ -70,6 +93,16 @@ module.exports = {
         return interaction.reply(nextMode === QueueRepeatMode.TRACK ? 'Current track repeat is now enabled.' : 'Current track repeat is now disabled.');
       }
 
+      case 'normalize': {
+        const option = interaction.options.getBoolean('enabled');
+        const enabled = option ?? !isNormalizationEnabled(queue);
+        await interaction.deferReply();
+        await setNormalization(queue, enabled);
+        return interaction.editReply(enabled
+          ? 'Loudness normalization is now enabled.'
+          : 'Loudness normalization is now disabled.');
+      }
+
       case 'queue': {
         const tracks = queue.tracks.toArray();
         const current = queue.currentTrack;
@@ -87,6 +120,7 @@ module.exports = {
             { name: 'Duration', value: current?.duration || 'Unknown', inline: true },
             { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
             { name: 'Loop', value: loopLabel(queue), inline: true },
+            { name: 'Normalize', value: isNormalizationEnabled(queue) ? 'On' : 'Off', inline: true },
             { name: `Up next (${tracks.length})`, value: list, inline: false },
           )
           .setFooter({ text: tracks.length > 10 ? `Showing 10 of ${tracks.length} queued tracks` : 'Use /music skip, pause, resume, volume, or stop' })
@@ -111,6 +145,7 @@ module.exports = {
             { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
             { name: 'Requested by', value: track.requestedBy?.username || '?', inline: true },
             { name: 'Loop', value: loopLabel(queue), inline: true },
+            { name: 'Normalize', value: isNormalizationEnabled(queue) ? 'On' : 'Off', inline: true },
           )
           .setFooter({ text: `${track.source || 'unknown'} source` })
           .setThumbnail(track.thumbnail || null);
