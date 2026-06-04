@@ -15,13 +15,13 @@
   "dependencies": {
     "@discord-player/extractor": "^7.2.0",
     "@discordjs/voice": "^0.19.2",
+    "@evan/opus": "^1.0.3",
     "discord-player": "^7.2.0",
     "discord-player-youtubei": "^2.0.0",
     "discord.js": "^14.26.2",
     "dotenv": "^17.4.1",
     "ffmpeg-static": "^5.3.0",
     "libsodium-wrappers": "^0.8.2",
-    "opusscript": "^0.0.8",
     "youtube-dl-exec": "^3.1.7"
   }
 }
