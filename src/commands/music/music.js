@@ -17,6 +17,10 @@ function loopLabel(queue) {
   return queue.repeatMode === QueueRepeatMode.TRACK ? 'Track' : 'Off';
 }
 
+function shuffleLabel(queue) {
+  return queue.isShuffling ? 'On' : 'Off';
+}
+
 function isNormalizationEnabled(queue) {
   return NORMALIZATION_FILTERS.every(filter => queue.filters.ffmpeg.filters.includes(filter));
 }
@@ -40,6 +44,13 @@ module.exports = {
     .addSubcommand(s => s.setName('pause').setDescription('Pause playback'))
     .addSubcommand(s => s.setName('resume').setDescription('Resume playback'))
     .addSubcommand(s => s.setName('loop').setDescription('Toggle repeat for the current track'))
+    .addSubcommand(s =>
+      s.setName('shuffle')
+        .setDescription('Toggle random playback for queued tracks')
+        .addBooleanOption(o =>
+          o.setName('enabled').setDescription('Enable or disable shuffle playback')
+        )
+    )
     .addSubcommand(s =>
       s.setName('normalize')
         .setDescription('Toggle loudness normalization')
@@ -93,6 +104,20 @@ module.exports = {
         return interaction.reply(nextMode === QueueRepeatMode.TRACK ? 'Current track repeat is now enabled.' : 'Current track repeat is now disabled.');
       }
 
+      case 'shuffle': {
+        const option = interaction.options.getBoolean('enabled');
+        const enabled = option ?? !queue.isShuffling;
+
+        if (enabled) {
+          queue.enableShuffle(true);
+          const note = queue.tracks.size < 2 ? ' Add more queued tracks for shuffle to matter.' : '';
+          return interaction.reply(`Shuffle playback is now enabled.${note}`);
+        }
+
+        queue.disableShuffle();
+        return interaction.reply('Shuffle playback is now disabled.');
+      }
+
       case 'normalize': {
         const option = interaction.options.getBoolean('enabled');
         const enabled = option ?? !isNormalizationEnabled(queue);
@@ -120,6 +145,7 @@ module.exports = {
             { name: 'Duration', value: current?.duration || 'Unknown', inline: true },
             { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
             { name: 'Loop', value: loopLabel(queue), inline: true },
+            { name: 'Shuffle', value: shuffleLabel(queue), inline: true },
             { name: 'Normalize', value: isNormalizationEnabled(queue) ? 'On' : 'Off', inline: true },
             { name: `Up next (${tracks.length})`, value: list, inline: false },
           )
@@ -145,6 +171,7 @@ module.exports = {
             { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
             { name: 'Requested by', value: track.requestedBy?.username || '?', inline: true },
             { name: 'Loop', value: loopLabel(queue), inline: true },
+            { name: 'Shuffle', value: shuffleLabel(queue), inline: true },
             { name: 'Normalize', value: isNormalizationEnabled(queue) ? 'On' : 'Off', inline: true },
           )
           .setFooter({ text: `${track.source || 'unknown'} source` })
