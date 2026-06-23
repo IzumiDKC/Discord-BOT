@@ -4,6 +4,15 @@ const DEFAULT_MUSIC_VOLUME = 55;
 const MUSIC_BITRATE = 128_000;
 const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
 
+function shuffleTracks(tracks) {
+  const shuffled = [...tracks];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
@@ -12,6 +21,10 @@ module.exports = {
       opt.setName('query')
         .setDescription('Song name, YouTube link, SoundCloud link, Spotify link...')
         .setRequired(true)
+    )
+    .addBooleanOption(opt =>
+      opt.setName('shuffle')
+        .setDescription('Shuffle playlist/list results before adding them')
     ),
 
   async execute(interaction, client) {
@@ -23,10 +36,22 @@ module.exports = {
     await interaction.deferReply();
 
     const query = interaction.options.getString('query', true);
+    const shouldShuffle = interaction.options.getBoolean('shuffle') ?? false;
 
     try {
       const { track, searchResult } = await client.player.play(voiceChannel, query, {
         requestedBy: interaction.user,
+        afterSearch: async result => {
+          if (!shouldShuffle || result.tracks.length < 2) return result;
+
+          const shuffledTracks = shuffleTracks(result.tracks);
+          result.setTracks(shuffledTracks);
+          if (result.playlist) {
+            result.playlist.tracks = shuffledTracks;
+          }
+
+          return result;
+        },
         nodeOptions: {
           metadata: {
             channel: interaction.channel,
@@ -58,7 +83,7 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setAuthor({ name: searchResult?.playlist ? 'Playlist Added' : 'Added to Queue' })
+        .setAuthor({ name: searchResult?.playlist ? `Playlist Added${shouldShuffle ? ' (Shuffled)' : ''}` : 'Added to Queue' })
         .setTitle(track.cleanTitle || track.title)
         .setURL(track.url)
         .addFields(
@@ -66,7 +91,7 @@ module.exports = {
           { name: 'Source', value: track.source || 'unknown', inline: true },
           { name: 'Requested by', value: interaction.user.username, inline: true },
         )
-        .setFooter({ text: 'Use /music queue to see what is coming up next' })
+        .setFooter({ text: shouldShuffle ? 'Playlist/list order was shuffled before adding' : 'Use /music queue to see what is coming up next' })
         .setThumbnail(track.thumbnail || null);
 
       return interaction.editReply({ embeds: [embed] });
