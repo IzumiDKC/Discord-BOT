@@ -75,8 +75,8 @@ function progressLine(queue) {
 function nowPlayingEmbed(queue, track) {
   const source = track?.source || 'unknown';
   return new EmbedBuilder()
-    .setColor(sourceColor(source))
-    .setAuthor({ name: 'NOW PLAYING  •  MOMOKA MUSIC' })
+    .setColor(COLORS.success)
+    .setAuthor({ name: 'NOW PLAYING  •  hoshi ♡' })
     .setTitle(truncate(trackTitle(track), 250))
     .setURL(track.url)
     .setDescription(progressLine(queue))
@@ -123,7 +123,7 @@ function addedToQueueEmbed({
       { name: '🌐 Nguồn', value: `\`${platformLabel(source)}\``, inline: true },
       { name: '👤 Người thêm', value: `<@${interaction.user.id}>`, inline: true },
     )
-    .setFooter({ text: shouldShuffle ? 'Thứ tự đã được xáo trộn' : 'Momoka Music • âm lượng mặc định 55%' })
+    .setFooter({ text: shouldShuffle ? 'Thứ tự đã được xáo trộn' : 'hoshi ♡ • âm lượng mặc định 55%' })
     .setThumbnail((isCollection ? collection.thumbnail : track.thumbnail) || null)
     .setTimestamp();
 }
@@ -150,7 +150,7 @@ function queueEmbed(queue, isNormalizationEnabled = () => false) {
 
   return new EmbedBuilder()
     .setColor(sourceColor(source))
-    .setAuthor({ name: 'MOMOKA MUSIC  •  QUEUE' })
+    .setAuthor({ name: 'hoshi ♡  •  QUEUE' })
     .setTitle(current ? truncate(trackTitle(current), 250) : 'Không có bài đang phát')
     .setURL(current?.url || null)
     .setDescription(current ? progressLine(queue) : '_Dùng `/play` để thêm nhạc._')
@@ -161,7 +161,7 @@ function queueEmbed(queue, isNormalizationEnabled = () => false) {
       { name: '🎚️ Normalize', value: `\`${isNormalizationEnabled(queue) ? 'On' : 'Off'}\``, inline: true },
       { name: `UP NEXT  •  ${tracks.length} TRACKS`, value: list, inline: false },
     )
-    .setFooter({ text: tracks.length > 10 ? `Đang hiển thị 10/${tracks.length} bài` : 'Momoka Music • /music skip | pause | stop' })
+    .setFooter({ text: tracks.length > 10 ? `Đang hiển thị 10/${tracks.length} bài` : 'hoshi ♡ • /music skip | pause | stop' })
     .setThumbnail(current?.thumbnail || null)
     .setTimestamp();
 }
@@ -171,7 +171,7 @@ function statusEmbed(title, description, color = COLORS.neutral) {
     .setColor(color)
     .setTitle(title)
     .setDescription(description)
-    .setFooter({ text: 'Momoka Music' })
+    .setFooter({ text: 'hoshi ♡' })
     .setTimestamp();
 }
 

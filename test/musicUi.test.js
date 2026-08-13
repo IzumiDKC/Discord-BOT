@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { musicControls, nowPlayingEmbed, queueEmbed } = require('../src/utils/musicUi');
+const { addedToQueueEmbed, musicControls, nowPlayingEmbed, queueEmbed } = require('../src/utils/musicUi');
 
 function setupQueue() {
   const track = {
@@ -33,7 +33,8 @@ test('builds a branded now-playing card with useful context', () => {
   const embed = nowPlayingEmbed(queue, track).toJSON();
 
   assert.equal(embed.title, 'Shape of You');
-  assert.equal(embed.color, 0x1DB954);
+  assert.equal(embed.color, 0x57F287);
+  assert.equal(embed.author.name, 'NOW PLAYING  •  hoshi ♡');
   assert.match(embed.description, /00:10 \/ 03:53/);
   assert.match(embed.footer.text, /Spotify catalog/);
 });
@@ -48,4 +49,21 @@ test('builds a compact queue card and four working control ids', () => {
     row.components.map(component => component.custom_id),
     ['music:pause-resume', 'music:skip', 'music:queue', 'music:stop']
   );
+});
+
+test('keeps a YouTube queue confirmation red to distinguish it from now playing', () => {
+  const { track } = setupQueue();
+  const embed = addedToQueueEmbed({
+    collection: null,
+    interaction: { user: { id: '123' } },
+    notice: null,
+    playbackDescription: 'Phát audio trực tiếp từ YouTube',
+    resolvedInput: { platform: 'youtube' },
+    shouldShuffle: false,
+    track: { ...track, source: 'youtube' },
+    trackCount: 1,
+  }).toJSON();
+
+  assert.equal(embed.color, 0xFF0033);
+  assert.match(embed.footer.text, /hoshi ♡/);
 });
