@@ -45,8 +45,22 @@ test('only responds to a short standalone greeting', () => {
 
 test('requires addressing the bot for vague controls and fallback', () => {
   assert.equal(detectIntent('skip đi', false), null);
-  assert.equal(detectIntent('momoka skip đi', true), 'controls');
-  assert.equal(detectIntent('momoka ơi', true), 'fallback');
+  assert.equal(detectIntent('m skip', true), 'controls');
+  assert.equal(detectIntent('m oi', true), 'fallback');
+});
+
+test('supports short m commands and no longer treats Momoka as a keyword', () => {
+  const client = mockClient();
+
+  assert.equal(createAutoReply(mockMessage('m'), client, 10_000).intent, 'help');
+  resetCooldowns();
+  assert.equal(createAutoReply(mockMessage('m np'), client, 10_000).intent, 'now_playing');
+  resetCooldowns();
+  assert.equal(createAutoReply(mockMessage('m q'), client, 10_000).intent, 'queue');
+  resetCooldowns();
+  assert.equal(createAutoReply(mockMessage('m controls'), client, 10_000).intent, 'controls');
+  resetCooldowns();
+  assert.equal(createAutoReply(mockMessage('momoka skip đi'), client, 10_000), null);
 });
 
 test('uses live queue context for now-playing questions', () => {

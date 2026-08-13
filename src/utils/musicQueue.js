@@ -91,7 +91,7 @@ class MusicQueue {
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: true,
+      selfDeaf: false,
     });
 
     this.connection.on('error', err => console.error('[Voice Error]', err.message));

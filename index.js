@@ -6,8 +6,6 @@ const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { MusicPresence } = require('./src/utils/musicPresence');
 const { musicControls, nowPlayingEmbed, statusEmbed } = require('./src/utils/musicUi');
 
-const MUSIC_BITRATE = 128_000;
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -43,11 +41,6 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   });
 
   client.player.events.on('playerStart', (queue, track) => {
-    try {
-      queue.node.setBitrate(MUSIC_BITRATE);
-    } catch (err) {
-      console.warn('[Music Bitrate Warning]', err.message);
-    }
     client.musicPresence.setPlaying(queue.guild.id, track);
     queue.metadata?.channel?.send({
       embeds: [nowPlayingEmbed(queue, track)],

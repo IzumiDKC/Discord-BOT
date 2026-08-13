@@ -19,12 +19,26 @@ function normalizeText(value) {
 function isAddressed(message, normalized) {
   const botId = message.client?.user?.id;
   const mentioned = botId ? message.mentions?.users?.has?.(botId) : false;
-  return Boolean(mentioned || /\b(momoka|bot|momo)\b/.test(normalized));
+  const usesPrefix = normalized === 'm' || normalized.startsWith('m ');
+  return Boolean(mentioned || usesPrefix);
 }
 
 function detectIntent(content, addressed = false) {
   const normalized = normalizeText(content);
   const wordCount = normalized ? normalized.split(' ').length : 0;
+  const prefixed = normalized === 'm' || normalized.startsWith('m ');
+  const command = prefixed ? normalized.slice(1).trim() : '';
+
+  if (prefixed) {
+    if (!command || /^(help|h|tro giup|huong dan)$/.test(command)) return 'help';
+    if (/^(now|np|status|dang phat)$/.test(command)) return 'now_playing';
+    if (/^(queue|q|hang cho)$/.test(command)) return 'queue';
+    if (/^(play|p|music|nhac)$/.test(command)) return 'music_help';
+    if (/^(controls?|c|skip|pause|resume|stop|volume|loop|shuffle)$/.test(command)) return 'controls';
+    if (/^(hi|hello|chao|xin chao)$/.test(command)) return 'greeting';
+    if (/^(who|info|ban la ai)$/.test(command)) return 'identity';
+    if (/^(thanks?|thank you|cam on)$/.test(command)) return 'thanks';
+  }
 
   if (/\b(dang phat bai gi|bai gi dang phat|nhac gi day|now playing|what is playing|what s playing)\b/.test(normalized)) return 'now_playing';
   if (/\b(hang cho|danh sach nhac|music queue|queue nhac|con bao nhieu bai)\b/.test(normalized)) return 'queue';
@@ -32,7 +46,7 @@ function detectIntent(content, addressed = false) {
   if (/\b(skip|bo qua|pause|tam dung|resume|tiep tuc|volume|am luong|loop|lap lai|shuffle|xao tron)\b/.test(normalized) && addressed) return 'controls';
   if (/\b(bot lam gi|lam duoc gi|huong dan|tro giup|help|danh sach lenh|lenh gi)\b/.test(normalized) && (addressed || wordCount <= 3)) return 'help';
   if (/\b(ten gi|ban la ai|m la ai|who are you)\b/.test(normalized) && addressed) return 'identity';
-  if (/^(xin chao|chao|hello|hi|hey|alo)( momoka| bot| momo)?$/.test(normalized)) return 'greeting';
+  if (/^(xin chao|chao|hello|hi|hey|alo)$/.test(normalized)) return 'greeting';
   if (/\b(cam on|thanks|thank you|tks)\b/.test(normalized) && addressed) return 'thanks';
   return addressed ? 'fallback' : null;
 }
@@ -70,16 +84,16 @@ function responseFor(intent, message, client) {
     case 'help':
       return {
         title: '✨ Momoka có thể giúp gì?',
-        description: '🎵 `/play` và `/music` — phát, xếp hàng và điều khiển nhạc\n🎫 `/ticket` — hỗ trợ ticket\n📡 `/ping` — kiểm tra độ trễ\nℹ️ `/info` — thông tin bot',
+        description: '**Cú pháp nhanh:** `m now` • `m queue` • `m play` • `m controls`\n\n🎵 `/play` và `/music` — phát, xếp hàng và điều khiển nhạc\n🎫 `/ticket` — hỗ trợ ticket\n📡 `/ping` — kiểm tra độ trễ\nℹ️ `/info` — thông tin bot',
       };
     case 'identity':
-      return { title: '🌸 Momoka', description: 'Mình là bot âm nhạc và tiện ích của server. Gọi “Momoka” hoặc mention mình khi cần nhé.' };
+      return { title: '🌸 Momoka', description: 'Mình là bot âm nhạc và tiện ích của server. Gõ `m help` hoặc mention mình khi cần nhé.' };
     case 'thanks':
-      return { title: '💗 Không có gì!', description: 'Cứ gọi Momoka khi bạn cần thêm nhạc nhé.' };
+      return { title: '💗 Không có gì!', description: 'Cứ gõ `m help` khi bạn cần nhé.' };
     case 'greeting':
       return { title: `👋 Chào ${message.member?.displayName || message.author.username}!`, description: 'Momoka đây. Muốn nghe gì thì vào voice và dùng `/play` nha 🎶' };
     case 'fallback':
-      return { title: '🤔 Mình chưa hiểu rõ', description: 'Bạn thử nói “Momoka phát nhạc thế nào?”, “đang phát bài gì?” hoặc dùng `/` để xem lệnh nhé.' };
+      return { title: '🤔 Mình chưa hiểu rõ', description: 'Thử `m help`, `m now`, `m queue`, `m play` hoặc `m controls` nhé.' };
     default:
       return null;
   }
@@ -108,7 +122,7 @@ function createAutoReply(message, client, now = Date.now()) {
         .setColor(0xF2A6C6)
         .setTitle(response.title)
         .setDescription(response.description)
-        .setFooter({ text: 'Momoka • nhắc tên mình để trò chuyện' })],
+        .setFooter({ text: 'Momoka • m help | m now | m queue' })],
       allowedMentions: { repliedUser: false },
     },
   };

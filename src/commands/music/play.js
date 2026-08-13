@@ -5,7 +5,6 @@ const { preloadSmartMatches, smartMusicBridge } = require('../../utils/smartMusi
 const { addedToQueueEmbed, musicControls, statusEmbed } = require('../../utils/musicUi');
 
 const DEFAULT_MUSIC_VOLUME = 55;
-const MUSIC_BITRATE = 128_000;
 const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
 
 function shuffleTracks(tracks) {
@@ -46,8 +45,9 @@ module.exports = {
     const resolvedInput = resolveMusicInput(query);
     const shouldShuffle = interaction.options.getBoolean('shuffle') ?? false;
 
+    let playResult;
     try {
-      const { track, searchResult } = await client.player.play(voiceChannel, resolvedInput.query, {
+      playResult = await client.player.play(voiceChannel, resolvedInput.query, {
         requestedBy: interaction.user,
         searchEngine: resolvedInput.searchEngine,
         fallbackSearchEngine: QueryType.YOUTUBE_SEARCH,
@@ -74,7 +74,7 @@ module.exports = {
             requestedBy: interaction.user,
             normalizationEnabled: true,
           },
-          selfDeaf: true,
+          selfDeaf: false,
           volume: DEFAULT_MUSIC_VOLUME,
           defaultFFmpegFilters: NORMALIZATION_FILTERS,
           leaveOnEmpty: true,
@@ -88,17 +88,32 @@ module.exports = {
           preferBridgedMetadata: true,
         },
       });
+    } catch (err) {
+      console.error('[/play Search Error]', err);
+      return interaction.editReply({
+        embeds: [statusEmbed(
+          '❌ Không tìm thấy bài phù hợp',
+          'Thử nhập rõ **tên bài + nghệ sĩ**, hoặc gửi link YouTube/Spotify/SoundCloud cụ thể.',
+          0xED4245
+        )],
+      });
+    }
 
-      const queue = client.player.nodes.get(interaction.guildId);
-      if (queue) {
+    const { track, searchResult } = playResult;
+    const queue = client.player.nodes.get(interaction.guildId);
+    if (queue) {
+      try {
         queue.setMetadata({
           channel: interaction.channel,
           requestedBy: interaction.user,
           normalizationEnabled: queue.metadata?.normalizationEnabled ?? true,
         });
-        queue.node.setBitrate(MUSIC_BITRATE);
+      } catch (err) {
+        console.warn('[/play Metadata Warning]', err.message);
       }
+    }
 
+    try {
       const collection = searchResult?.playlist;
       const trackCount = searchResult?.tracks?.length || 1;
       const sourceName = platformLabel(resolvedInput.platform);
@@ -122,14 +137,14 @@ module.exports = {
 
       return interaction.editReply({ embeds: [embed], components: musicControls() });
     } catch (err) {
-      console.error('[/play Error]', err);
+      console.error('[/play Confirmation Error]', err);
       return interaction.editReply({
         embeds: [statusEmbed(
-          '❌ Không tìm thấy bài phù hợp',
-          'Thử nhập rõ **tên bài + nghệ sĩ**, hoặc gửi link YouTube/Spotify/SoundCloud cụ thể.',
-          0xED4245
+          '✅ Đã nhận bài hát',
+          `**${track?.cleanTitle || track?.title || query}** đã được phát hoặc thêm vào hàng chờ.`,
+          0x57F287
         )],
-      });
+      }).catch(() => null);
     }
   },
 };
