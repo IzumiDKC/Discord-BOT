@@ -9,7 +9,7 @@ const statuses = [
 let index = 0;
 
 module.exports = {
-  name: 'ready',
+  name: 'clientReady',
   once: true,
   execute(client) {
     console.log(`✅ Bot online: ${client.user.tag}`);

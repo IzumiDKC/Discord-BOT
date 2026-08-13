@@ -31,6 +31,7 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   await client.player.extractors.loadMulti(DefaultExtractors);
   await client.player.extractors.register(YoutubeiExtractor, {
     useYoutubeDL: true,
+    disablePlayer: true,
     logLevel: 'LOW',
     slicePlaylist: false,
     streamOptions: {

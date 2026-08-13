@@ -105,19 +105,19 @@ async function resolveBestTrack(track, player) {
 
   let candidates = [];
   try {
-    candidates = await searchWithYoutubei(track, extractor);
+    candidates = await searchWithYtDlp(track, player, extractor);
   } catch (error) {
-    console.warn('[Music Match] YouTubei search failed, trying yt-dlp:', error.message);
+    console.warn('[Music Match] yt-dlp search failed, trying YouTubei:', error.message);
   }
 
   let match = findBestCandidate(track, candidates);
   if (!match) {
     try {
-      const ytDlpCandidates = await searchWithYtDlp(track, player, extractor);
-      candidates = [...candidates, ...ytDlpCandidates];
+      const youtubeiCandidates = await searchWithYoutubei(track, extractor);
+      candidates = [...candidates, ...youtubeiCandidates];
       match = findBestCandidate(track, candidates);
     } catch (error) {
-      console.warn('[Music Match] yt-dlp search failed:', error.message);
+      console.warn('[Music Match] YouTubei search failed:', error.message);
     }
   }
 
