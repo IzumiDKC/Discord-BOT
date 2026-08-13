@@ -14,6 +14,14 @@ async function handleMusicButton(interaction, client) {
     return interaction.reply({ content: '🌙 Hiện không có nhạc trong hàng chờ.', ephemeral: true });
   }
 
+  if (action === 'queue') {
+    return interaction.reply({
+      embeds: [queueEmbed(queue, isNormalizationEnabled)],
+      components: musicControls(),
+      ephemeral: true,
+    });
+  }
+
   const memberVoiceId = interaction.member.voice?.channelId;
   const botVoiceId = interaction.guild.members.me?.voice?.channelId;
   if (!memberVoiceId || (botVoiceId && memberVoiceId !== botVoiceId)) {
@@ -32,13 +40,6 @@ async function handleMusicButton(interaction, client) {
   if (action === 'stop') {
     queue.delete();
     return interaction.reply({ content: '⏹️ Đã dừng nhạc và xóa hàng chờ.', ephemeral: true });
-  }
-  if (action === 'queue') {
-    return interaction.reply({
-      embeds: [queueEmbed(queue, isNormalizationEnabled)],
-      components: musicControls(),
-      ephemeral: true,
-    });
   }
 }
 

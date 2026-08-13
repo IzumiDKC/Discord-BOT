@@ -59,6 +59,18 @@ module.exports = {
       return interaction.reply({ content: '🌙 Hiện không có nhạc trong hàng chờ.', ephemeral: true });
     }
 
+    const readOnlySubcommands = new Set(['queue', 'nowplaying']);
+    if (!readOnlySubcommands.has(sub)) {
+      const memberVoiceId = interaction.member.voice?.channelId;
+      const botVoiceId = interaction.guild.members.me?.voice?.channelId;
+      if (!memberVoiceId || (botVoiceId && memberVoiceId !== botVoiceId)) {
+        return interaction.reply({
+          content: '🎧 Bạn cần ở cùng kênh voice với Momoka để điều khiển nhạc.',
+          ephemeral: true,
+        });
+      }
+    }
+
     switch (sub) {
       case 'skip': {
         const skipped = queue.node.skip();
