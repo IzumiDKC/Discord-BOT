@@ -1,4 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { QueryType } = require('discord-player');
+const { platformLabel, resolveMusicInput } = require('../../utils/musicSource');
+const { preloadSmartMatches, smartMusicBridge } = require('../../utils/smartMusicBridge');
 
 const DEFAULT_MUSIC_VOLUME = 55;
 const MUSIC_BITRATE = 128_000;
@@ -19,7 +22,7 @@ module.exports = {
     .setDescription('Play music from a song name or link')
     .addStringOption(opt =>
       opt.setName('query')
-        .setDescription('Song name, YouTube link, SoundCloud link, Spotify link...')
+        .setDescription('Song, playlist or album from YouTube, SoundCloud or Spotify')
         .setRequired(true)
     )
     .addBooleanOption(opt =>
@@ -36,12 +39,21 @@ module.exports = {
     await interaction.deferReply();
 
     const query = interaction.options.getString('query', true);
+    const resolvedInput = resolveMusicInput(query);
     const shouldShuffle = interaction.options.getBoolean('shuffle') ?? false;
 
     try {
-      const { track, searchResult } = await client.player.play(voiceChannel, query, {
+      const { track, searchResult } = await client.player.play(voiceChannel, resolvedInput.query, {
         requestedBy: interaction.user,
+        searchEngine: resolvedInput.searchEngine,
+        fallbackSearchEngine: QueryType.YOUTUBE_SEARCH,
         afterSearch: async result => {
+          if (result.tracks.length > 1) {
+            void preloadSmartMatches(result.tracks, client.player).catch(error => {
+              console.warn('[Music Match] Preload failed:', error.message);
+            });
+          }
+
           if (!shouldShuffle || result.tracks.length < 2) return result;
 
           const shuffledTracks = shuffleTracks(result.tracks);
@@ -68,6 +80,8 @@ module.exports = {
           leaveOnStop: true,
           leaveOnStopCooldown: 10_000,
           bufferingTimeout: 30_000,
+          onBeforeCreateStream: smartMusicBridge,
+          preferBridgedMetadata: true,
         },
       });
 
@@ -81,18 +95,30 @@ module.exports = {
         queue.node.setBitrate(MUSIC_BITRATE);
       }
 
+      const collection = searchResult?.playlist;
+      const trackCount = searchResult?.tracks?.length || 1;
+      const isCollection = Boolean(collection);
+      const sourceName = platformLabel(resolvedInput.platform);
+      const playbackDescription = resolvedInput.directAudio
+        ? `Direct ${sourceName} audio`
+        : `${sourceName} catalog; each track is matched to the closest playable YouTube audio`;
+      const notice = resolvedInput.automaticMixRemoved
+        ? 'YouTube auto-generated Mix parameters were ignored, so only the shared video was queued.'
+        : null;
+
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setAuthor({ name: searchResult?.playlist ? `Playlist Added${shouldShuffle ? ' (Shuffled)' : ''}` : 'Added to Queue' })
-        .setTitle(track.cleanTitle || track.title)
-        .setURL(track.url)
+        .setAuthor({ name: isCollection ? `${collection.type === 'album' ? 'Album' : 'Playlist'} Added${shouldShuffle ? ' (Shuffled)' : ''}` : 'Added to Queue' })
+        .setTitle(isCollection ? collection.title : (track.cleanTitle || track.title))
+        .setURL(isCollection ? collection.url : track.url)
         .addFields(
-          { name: 'Duration', value: track.duration || 'Unknown', inline: true },
-          { name: 'Source', value: track.source || 'unknown', inline: true },
+          { name: isCollection ? 'Tracks' : 'Duration', value: isCollection ? String(trackCount) : (track.duration || 'Unknown'), inline: true },
+          { name: 'Catalog source', value: sourceName, inline: true },
           { name: 'Requested by', value: interaction.user.username, inline: true },
+          { name: 'Playback route', value: playbackDescription, inline: false },
         )
-        .setFooter({ text: shouldShuffle ? 'Playlist/list order was shuffled before adding' : 'Use /music queue to see what is coming up next' })
-        .setThumbnail(track.thumbnail || null);
+        .setFooter({ text: notice || (shouldShuffle ? 'Playlist/list order was shuffled before adding' : 'Use /music queue to see what is coming up next') })
+        .setThumbnail((isCollection ? collection.thumbnail : track.thumbnail) || null);
 
       return interaction.editReply({ embeds: [embed] });
     } catch (err) {
