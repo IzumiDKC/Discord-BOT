@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
+const { playbackSourceLabel } = require('./src/utils/smartMusicBridge');
 
 const MUSIC_BITRATE = 128_000;
 
@@ -31,6 +32,7 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   await client.player.extractors.register(YoutubeiExtractor, {
     useYoutubeDL: true,
     logLevel: 'LOW',
+    slicePlaylist: false,
     streamOptions: {
       useClient: 'WEB',
       highWaterMark: 1 << 25,
@@ -43,7 +45,9 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
     } catch (err) {
       console.warn('[Music Bitrate Warning]', err.message);
     }
-    queue.metadata?.channel?.send(`Now playing: **${track.cleanTitle || track.title}**`).catch(() => {});
+    queue.metadata?.channel?.send(
+      `Now playing: **${track.cleanTitle || track.title}**\nSource: ${playbackSourceLabel(track)}`
+    ).catch(() => {});
   });
 
   client.player.events.on('audioTrackAdd', (queue, track) => {
