@@ -4,6 +4,7 @@ const playCommand = require('../src/commands/music/play');
 
 test('does not report a search error after playback has already succeeded', async () => {
   const replies = [];
+  let nodeOptions;
   const voiceChannel = { id: 'voice-1' };
   const track = {
     cleanTitle: 'Lệ Lưu Ly',
@@ -38,7 +39,10 @@ test('does not report a search error after playback has already succeeded', asyn
   const client = {
     player: {
       nodes: { get: () => queue },
-      play: async () => ({ searchResult: { tracks: [track] }, track }),
+      play: async (channel, query, options) => {
+        nodeOptions = options.nodeOptions;
+        return { searchResult: { tracks: [track] }, track };
+      },
     },
   };
 
@@ -47,4 +51,5 @@ test('does not report a search error after playback has already succeeded', asyn
   assert.equal(replies.length, 1);
   assert.match(replies[0].embeds[0].data.title, /Lệ Lưu Ly/);
   assert.doesNotMatch(replies[0].embeds[0].data.title, /Không tìm thấy/);
+  assert.equal(nodeOptions.leaveOnEnd, false);
 });

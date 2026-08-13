@@ -4,6 +4,7 @@ const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { MusicPresence } = require('./src/utils/musicPresence');
+const { idleDisconnectMessage, MusicIdleManager } = require('./src/utils/musicIdle');
 const { musicControls, nowPlayingEmbed, statusEmbed } = require('./src/utils/musicUi');
 
 const client = new Client({
@@ -19,6 +20,7 @@ const client = new Client({
 client.commands = new Collection();
 client.player = new Player(client);
 client.musicPresence = new MusicPresence(client);
+client.musicIdle = new MusicIdleManager();
 
 require('./src/handlers/commandHandler')(client);
 require('./src/handlers/eventHandler')(client);
@@ -41,6 +43,7 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   });
 
   client.player.events.on('playerStart', (queue, track) => {
+    client.musicIdle.cancel(queue);
     client.musicPresence.setPlaying(queue.guild.id, track);
     queue.metadata?.channel?.send({
       embeds: [nowPlayingEmbed(queue, track)],
@@ -59,16 +62,19 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   client.player.events.on('emptyQueue', queue => {
     if (queue.currentTrack) return;
     client.musicPresence.clear(queue.guild.id);
+    client.musicIdle.schedule(queue);
     queue.metadata?.channel?.send({
-      embeds: [statusEmbed('🌙 Hàng chờ đã hết', 'Cảm ơn bạn đã nghe nhạc cùng Momoka. Dùng `/play` để bắt đầu lượt mới.', 0x2B2D31)],
+      embeds: [statusEmbed('🌙 Hàng chờ đã hết', idleDisconnectMessage(), 0x2B2D31)],
     }).catch(() => {});
   });
 
   client.player.events.on('queueDelete', queue => {
+    client.musicIdle.cancel(queue);
     client.musicPresence.clear(queue.guild.id);
   });
 
   client.player.events.on('disconnect', queue => {
+    client.musicIdle.cancel(queue);
     client.musicPresence.clear(queue.guild.id);
   });
 
