@@ -1,6 +1,6 @@
 const { ActivityType } = require('discord.js');
 
-const DEFAULT_ACTIVITY = '🎵 nhạc Sơn Tùng M-TP';
+const DEFAULT_ACTIVITY = 'Anime';
 const MAX_ACTIVITY_LENGTH = 100;
 
 function truncate(value, maxLength = MAX_ACTIVITY_LENGTH) {
@@ -21,7 +21,7 @@ class MusicPresence {
 
   setDefault() {
     this.client.user?.setPresence({
-      activities: [{ name: DEFAULT_ACTIVITY, type: ActivityType.Listening }],
+      activities: [{ name: DEFAULT_ACTIVITY, type: ActivityType.Watching }],
       status: 'online',
     });
   }

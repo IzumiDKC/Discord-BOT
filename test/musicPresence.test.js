@@ -23,6 +23,7 @@ test('shows the current song and restores the default activity', () => {
   manager.clear('guild-1');
 
   assert.equal(presences[0].activities[0].name, DEFAULT_ACTIVITY);
+  assert.equal(presences[0].activities[0].type, ActivityType.Watching);
   assert.equal(presences[1].activities[0].name, 'Shape of You');
   assert.equal(presences[1].activities[0].type, ActivityType.Listening);
   assert.equal(presences[2].activities[0].name, DEFAULT_ACTIVITY);
