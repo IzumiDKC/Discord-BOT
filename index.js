@@ -3,7 +3,8 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
-const { playbackSourceLabel } = require('./src/utils/smartMusicBridge');
+const { MusicPresence } = require('./src/utils/musicPresence');
+const { musicControls, nowPlayingEmbed, statusEmbed } = require('./src/utils/musicUi');
 
 const MUSIC_BITRATE = 128_000;
 
@@ -19,6 +20,7 @@ const client = new Client({
 
 client.commands = new Collection();
 client.player = new Player(client);
+client.musicPresence = new MusicPresence(client);
 
 require('./src/handlers/commandHandler')(client);
 require('./src/handlers/eventHandler')(client);
@@ -46,32 +48,53 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
     } catch (err) {
       console.warn('[Music Bitrate Warning]', err.message);
     }
-    queue.metadata?.channel?.send(
-      `Now playing: **${track.cleanTitle || track.title}**\nSource: ${playbackSourceLabel(track)}`
-    ).catch(() => {});
+    client.musicPresence.setPlaying(queue.guild.id, track);
+    queue.metadata?.channel?.send({
+      embeds: [nowPlayingEmbed(queue, track)],
+      components: musicControls(),
+    }).catch(() => {});
   });
 
-  client.player.events.on('audioTrackAdd', (queue, track) => {
-    queue.metadata?.channel?.send(`Added to queue: **${track.cleanTitle || track.title}**`).catch(() => {});
+  client.player.events.on('playerPause', queue => {
+    client.musicPresence.setPaused(queue.guild.id, true);
   });
 
-  client.player.events.on('audioTracksAdd', (queue, tracks) => {
-    queue.metadata?.channel?.send(`Added **${tracks.length}** tracks to the queue.`).catch(() => {});
+  client.player.events.on('playerResume', queue => {
+    client.musicPresence.setPaused(queue.guild.id, false);
   });
 
   client.player.events.on('emptyQueue', queue => {
     if (queue.currentTrack) return;
-    queue.metadata?.channel?.send('The music queue is empty.').catch(() => {});
+    client.musicPresence.clear(queue.guild.id);
+    queue.metadata?.channel?.send({
+      embeds: [statusEmbed('🌙 Hàng chờ đã hết', 'Cảm ơn bạn đã nghe nhạc cùng Momoka. Dùng `/play` để bắt đầu lượt mới.', 0x2B2D31)],
+    }).catch(() => {});
   });
 
-  client.player.events.on('playerError', (queue, error) => {
+  client.player.events.on('queueDelete', queue => {
+    client.musicPresence.clear(queue.guild.id);
+  });
+
+  client.player.events.on('disconnect', queue => {
+    client.musicPresence.clear(queue.guild.id);
+  });
+
+  client.player.events.on('playerError', (queue, error, track) => {
     console.error('[Music Player Error]', error);
-    queue.metadata?.channel?.send('Could not play this track, skipping...').catch(() => {});
+    queue.metadata?.channel?.send({
+      embeds: [statusEmbed(
+        '⚠️ Không phát được bài này',
+        `Mình đã bỏ qua **${track?.cleanTitle || track?.title || 'bài hiện tại'}** và sẽ thử bài tiếp theo.`,
+        0xFEE75C
+      )],
+    }).catch(() => {});
   });
 
   client.player.events.on('error', (queue, error) => {
     console.error('[Music Queue Error]', error);
-    queue.metadata?.channel?.send('A music queue error occurred.').catch(() => {});
+    queue.metadata?.channel?.send({
+      embeds: [statusEmbed('❌ Hàng chờ gặp lỗi', 'Thử lại bằng `/play`. Nếu lỗi lặp lại, hãy gửi một link cụ thể.', 0xED4245)],
+    }).catch(() => {});
   });
 
   await client.login(process.env.DISCORD_TOKEN);

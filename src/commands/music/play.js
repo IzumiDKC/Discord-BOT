@@ -1,7 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { QueryType } = require('discord-player');
 const { platformLabel, resolveMusicInput } = require('../../utils/musicSource');
 const { preloadSmartMatches, smartMusicBridge } = require('../../utils/smartMusicBridge');
+const { addedToQueueEmbed, musicControls, statusEmbed } = require('../../utils/musicUi');
 
 const DEFAULT_MUSIC_VOLUME = 55;
 const MUSIC_BITRATE = 128_000;
@@ -19,21 +20,24 @@ function shuffleTracks(tracks) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('Play music from a song name or link')
+    .setDescription('Phát nhạc từ tên bài, playlist, album hoặc đường link')
     .addStringOption(opt =>
       opt.setName('query')
-        .setDescription('Song, playlist or album from YouTube, SoundCloud or Spotify')
+        .setDescription('Tên bài hoặc link YouTube, Spotify, SoundCloud')
         .setRequired(true)
     )
     .addBooleanOption(opt =>
       opt.setName('shuffle')
-        .setDescription('Shuffle playlist/list results before adding them')
+        .setDescription('Xáo trộn playlist hoặc album trước khi thêm')
     ),
 
   async execute(interaction, client) {
     const voiceChannel = interaction.member.voice?.channel;
     if (!voiceChannel) {
-      return interaction.reply({ content: 'You need to join a voice channel first.', ephemeral: true });
+      return interaction.reply({
+        embeds: [statusEmbed('🎧 Bạn chưa vào voice', 'Hãy vào một kênh thoại rồi dùng lại `/play`.', 0xFEE75C)],
+        ephemeral: true,
+      });
     }
 
     await interaction.deferReply();
@@ -97,33 +101,35 @@ module.exports = {
 
       const collection = searchResult?.playlist;
       const trackCount = searchResult?.tracks?.length || 1;
-      const isCollection = Boolean(collection);
       const sourceName = platformLabel(resolvedInput.platform);
       const playbackDescription = resolvedInput.directAudio
-        ? `Direct ${sourceName} audio`
-        : `${sourceName} catalog; each track is matched to the closest playable YouTube audio`;
+        ? `Phát audio trực tiếp từ ${sourceName}`
+        : `Danh mục ${sourceName}; từng bài được đối chiếu với audio YouTube phù hợp nhất`;
       const notice = resolvedInput.automaticMixRemoved
-        ? 'YouTube auto-generated Mix parameters were ignored, so only the shared video was queued.'
+        ? 'Đã bỏ YouTube Mix tự sinh và chỉ thêm đúng video bạn gửi.'
         : null;
 
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setAuthor({ name: isCollection ? `${collection.type === 'album' ? 'Album' : 'Playlist'} Added${shouldShuffle ? ' (Shuffled)' : ''}` : 'Added to Queue' })
-        .setTitle(isCollection ? collection.title : (track.cleanTitle || track.title))
-        .setURL(isCollection ? collection.url : track.url)
-        .addFields(
-          { name: isCollection ? 'Tracks' : 'Duration', value: isCollection ? String(trackCount) : (track.duration || 'Unknown'), inline: true },
-          { name: 'Catalog source', value: sourceName, inline: true },
-          { name: 'Requested by', value: interaction.user.username, inline: true },
-          { name: 'Playback route', value: playbackDescription, inline: false },
-        )
-        .setFooter({ text: notice || (shouldShuffle ? 'Playlist/list order was shuffled before adding' : 'Use /music queue to see what is coming up next') })
-        .setThumbnail((isCollection ? collection.thumbnail : track.thumbnail) || null);
+      const embed = addedToQueueEmbed({
+        collection,
+        interaction,
+        notice,
+        playbackDescription,
+        resolvedInput,
+        shouldShuffle,
+        track,
+        trackCount,
+      });
 
-      return interaction.editReply({ embeds: [embed] });
+      return interaction.editReply({ embeds: [embed], components: musicControls() });
     } catch (err) {
       console.error('[/play Error]', err);
-      return interaction.editReply('Could not find or play this track. Try another YouTube/SoundCloud link or a clearer song name.');
+      return interaction.editReply({
+        embeds: [statusEmbed(
+          '❌ Không tìm thấy bài phù hợp',
+          'Thử nhập rõ **tên bài + nghệ sĩ**, hoặc gửi link YouTube/Spotify/SoundCloud cụ thể.',
+          0xED4245
+        )],
+      });
     }
   },
 };
