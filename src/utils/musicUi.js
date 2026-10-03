@@ -92,9 +92,9 @@ function nowPlayingEmbed(queue, track) {
 
 function addedToQueueEmbed({
   collection,
-  interaction,
   notice,
   playbackDescription,
+  requester,
   resolvedInput,
   shouldShuffle,
   track,
@@ -121,11 +121,29 @@ function addedToQueueEmbed({
         inline: true,
       },
       { name: '🌐 Nguồn', value: `\`${platformLabel(source)}\``, inline: true },
-      { name: '👤 Người thêm', value: `<@${interaction.user.id}>`, inline: true },
+      { name: '👤 Người thêm', value: `<@${requester.id}>`, inline: true },
     )
     .setFooter({ text: shouldShuffle ? 'Thứ tự đã được xáo trộn' : 'hoshi ♡ • âm lượng mặc định 55%' })
     .setThumbnail((isCollection ? collection.thumbnail : track.thumbnail) || null)
     .setTimestamp();
+}
+
+function musicRequestEmbed({ requester, resolvedInput, searchResult, shouldShuffle = false, track }) {
+  const sourceName = platformLabel(resolvedInput.platform);
+  return addedToQueueEmbed({
+    collection: searchResult?.playlist,
+    notice: resolvedInput.automaticMixRemoved
+      ? 'Đã bỏ YouTube Mix tự sinh và chỉ thêm đúng video bạn gửi.'
+      : null,
+    playbackDescription: resolvedInput.directAudio
+      ? `Phát audio trực tiếp từ ${sourceName}`
+      : `Danh mục ${sourceName}; từng bài được đối chiếu với audio YouTube phù hợp nhất`,
+    requester,
+    resolvedInput,
+    shouldShuffle,
+    track,
+    trackCount: searchResult?.tracks?.length || 1,
+  });
 }
 
 function loopLabel(queue) {
@@ -178,6 +196,7 @@ function statusEmbed(title, description, color = COLORS.neutral) {
 module.exports = {
   COLORS,
   addedToQueueEmbed,
+  musicRequestEmbed,
   musicControls,
   nowPlayingEmbed,
   progressLine,

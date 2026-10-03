@@ -5,7 +5,7 @@ const playCommand = require('../src/commands/music/play');
 test('does not report a search error after playback has already succeeded', async () => {
   const replies = [];
   let nodeOptions;
-  const voiceChannel = { id: 'voice-1' };
+  const voiceChannel = { id: 'voice-1', guild: { id: 'guild-1' } };
   const track = {
     cleanTitle: 'Lệ Lưu Ly',
     duration: '03:46',
