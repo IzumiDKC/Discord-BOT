@@ -55,9 +55,9 @@ test('keeps a YouTube queue confirmation red to distinguish it from now playing'
   const { track } = setupQueue();
   const embed = addedToQueueEmbed({
     collection: null,
-    interaction: { user: { id: '123' } },
     notice: null,
     playbackDescription: 'Phát audio trực tiếp từ YouTube',
+    requester: { id: '123' },
     resolvedInput: { platform: 'youtube' },
     shouldShuffle: false,
     track: { ...track, source: 'youtube' },
