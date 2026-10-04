@@ -17,6 +17,7 @@ function setupQueue() {
     queue: {
       currentTrack: track,
       isShuffling: false,
+      metadata: { audioPreset: 'natural', activeAudioPreset: 'balanced' },
       node: {
         volume: 55,
         createProgressBar: () => '▬▬●▬▬',
@@ -41,10 +42,12 @@ test('builds a branded now-playing card with useful context', () => {
 
 test('builds a compact queue card and four working control ids', () => {
   const { queue } = setupQueue();
-  const embed = queueEmbed(queue, () => true).toJSON();
+  const embed = queueEmbed(queue).toJSON();
   const row = musicControls()[0].toJSON();
 
   assert.match(embed.fields.at(-1).value, /Shape of You/);
+  assert.ok(embed.fields.some(field => field.name === '🎚️ Sound'
+    && field.value.includes('Natural (next track)')));
   assert.deepEqual(
     row.components.map(component => component.custom_id),
     ['music:pause-resume', 'music:skip', 'music:queue', 'music:stop']

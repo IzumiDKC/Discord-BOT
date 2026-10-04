@@ -1,21 +1,13 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { QueueRepeatMode } = require('discord-player');
 const { musicControls, nowPlayingEmbed, queueEmbed } = require('../../utils/musicUi');
+const { AUDIO_PRESETS, getAudioPreset, setAudioPreset } = require('../../utils/musicAudio');
+const { getMusicHealth } = require('../../utils/musicHealth');
 
-const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
-
-function isNormalizationEnabled(queue) {
-  return NORMALIZATION_FILTERS.every(filter => queue.filters.ffmpeg.filters.includes(filter));
-}
-
-async function setNormalization(queue, enabled) {
-  const currentFilters = queue.filters.ffmpeg.filters.filter(filter => !NORMALIZATION_FILTERS.includes(filter));
-  const nextFilters = enabled ? [...currentFilters, ...NORMALIZATION_FILTERS] : currentFilters;
-  await queue.filters.ffmpeg.setFilters(nextFilters);
-  queue.setMetadata({
-    ...queue.metadata,
-    normalizationEnabled: enabled,
-  });
+function replyWithPreset(interaction, queue, preset) {
+  setAudioPreset(queue, preset);
+  const label = preset === AUDIO_PRESETS.BALANCED ? 'Balanced' : 'Natural';
+  return interaction.reply(`Sound preset: **${label}**. It takes effect on the next track; the current track keeps playing.`);
 }
 
 module.exports = {
@@ -41,8 +33,20 @@ module.exports = {
           o.setName('enabled').setDescription('Bật hoặc tắt cân bằng âm lượng')
         )
     )
+    .addSubcommand(s =>
+      s.setName('preset')
+        .setDescription('Choose the sound preset for upcoming tracks')
+        .addStringOption(o => o.setName('mode')
+          .setDescription('Natural keeps the source sound; Balanced evens out volume')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Natural', value: AUDIO_PRESETS.NATURAL },
+            { name: 'Balanced', value: AUDIO_PRESETS.BALANCED }
+          ))
+    )
     .addSubcommand(s => s.setName('queue').setDescription('Xem hàng chờ nhạc'))
     .addSubcommand(s => s.setName('nowplaying').setDescription('Xem bài đang phát'))
+    .addSubcommand(s => s.setName('health').setDescription('Check voice ping and recent audio underruns'))
     .addSubcommand(s =>
       s.setName('volume')
         .setDescription('Đặt âm lượng từ 0 đến 100')
@@ -59,7 +63,7 @@ module.exports = {
       return interaction.reply({ content: '🌙 Hiện không có nhạc trong hàng chờ.', ephemeral: true });
     }
 
-    const readOnlySubcommands = new Set(['queue', 'nowplaying']);
+    const readOnlySubcommands = new Set(['queue', 'nowplaying', 'health']);
     if (!readOnlySubcommands.has(sub)) {
       const memberVoiceId = interaction.member.voice?.channelId;
       const botVoiceId = interaction.guild.members.me?.voice?.channelId;
@@ -115,17 +119,18 @@ module.exports = {
 
       case 'normalize': {
         const option = interaction.options.getBoolean('enabled');
-        const enabled = option ?? !isNormalizationEnabled(queue);
-        await interaction.deferReply();
-        await setNormalization(queue, enabled);
-        return interaction.editReply(enabled
-          ? '🎚️ Đã bật cân bằng âm lượng.'
-          : '🎚️ Đã tắt cân bằng âm lượng.');
+        const enabled = option ?? getAudioPreset(queue) !== AUDIO_PRESETS.BALANCED;
+        return replyWithPreset(interaction, queue, enabled ? AUDIO_PRESETS.BALANCED : AUDIO_PRESETS.NATURAL);
+      }
+
+      case 'preset': {
+        const preset = interaction.options.getString('mode', true);
+        return replyWithPreset(interaction, queue, preset);
       }
 
       case 'queue': {
         return interaction.reply({
-          embeds: [queueEmbed(queue, isNormalizationEnabled)],
+          embeds: [queueEmbed(queue)],
           components: musicControls(),
         });
       }
@@ -135,6 +140,20 @@ module.exports = {
         if (!track) return interaction.reply({ content: 'Hiện không có bài nào đang phát.', ephemeral: true });
 
         return interaction.reply({ embeds: [nowPlayingEmbed(queue, track)], components: musicControls() });
+      }
+
+      case 'health': {
+        const health = getMusicHealth(queue);
+        if (!health) return interaction.reply({ content: 'Audio monitoring is starting. Try again shortly.', ephemeral: true });
+        const ping = value => value === null ? 'n/a' : `${value} ms`;
+        return interaction.reply({
+          content: `Audio: **${health.status}** (${health.source})\n`
+            + `Voice ping: UDP **${ping(health.udpPingMs)}**, WS **${ping(health.wsPingMs)}**\n`
+            + `Last 30s: **${health.underrunStreaks}** underrun streaks, `
+            + `max **${health.maxMissedFrames}** missed frames, `
+            + `event-loop lag **${health.maxEventLoopLagMs} ms**`,
+          ephemeral: true,
+        });
       }
 
       case 'volume': {

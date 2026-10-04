@@ -8,6 +8,7 @@ const { QueueRepeatMode } = require('discord-player');
 const { playbackSourceLabel } = require('./smartMusicBridge');
 const { platformLabel } = require('./musicSource');
 const { trackTitle, truncate } = require('./musicPresence');
+const { AUDIO_PRESETS, getAudioPreset } = require('./musicAudio');
 
 const COLORS = {
   danger: 0xED4245,
@@ -160,11 +161,15 @@ function trackLine(track, index) {
   return `\`${String(index + 1).padStart(2, '0')}\`  [${title}](${track.url})  \`${duration}\``;
 }
 
-function queueEmbed(queue, isNormalizationEnabled = () => false) {
+function queueEmbed(queue) {
   const tracks = queue.tracks.toArray();
   const current = queue.currentTrack;
   const list = tracks.slice(0, 10).map(trackLine).join('\n') || '_Hàng chờ đang trống._';
   const source = current?.source || 'neutral';
+  const preset = getAudioPreset(queue);
+  const presetLabel = preset === AUDIO_PRESETS.BALANCED ? 'Balanced' : 'Natural';
+  const pending = current && queue.metadata?.activeAudioPreset
+    && queue.metadata.activeAudioPreset !== preset;
 
   return new EmbedBuilder()
     .setColor(sourceColor(source))
@@ -176,7 +181,7 @@ function queueEmbed(queue, isNormalizationEnabled = () => false) {
       { name: '🔊 Volume', value: `\`${queue.node.volume}%\``, inline: true },
       { name: '🔁 Loop', value: `\`${loopLabel(queue)}\``, inline: true },
       { name: '🔀 Shuffle', value: `\`${shuffleLabel(queue)}\``, inline: true },
-      { name: '🎚️ Normalize', value: `\`${isNormalizationEnabled(queue) ? 'On' : 'Off'}\``, inline: true },
+      { name: '🎚️ Sound', value: `\`${presetLabel}${pending ? ' (next track)' : ''}\``, inline: true },
       { name: `UP NEXT  •  ${tracks.length} TRACKS`, value: list, inline: false },
     )
     .setFooter({ text: tracks.length > 10 ? `Đang hiển thị 10/${tracks.length} bài` : 'hoshi ♡ • /music skip | pause | stop' })
