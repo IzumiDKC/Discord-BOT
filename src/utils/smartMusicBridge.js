@@ -2,6 +2,7 @@ const youtubeDl = require('youtube-dl-exec');
 const { QueryType, Track, Util } = require('discord-player');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { findBestCandidate, rankCandidates } = require('./musicMatcher');
+const { keyForSong } = require('./musicLibrary');
 
 const BRIDGED_SOURCES = new Set(['apple_music', 'spotify']);
 const SEARCH_LIMIT = 15;
@@ -26,9 +27,10 @@ function searchQuery(track) {
 }
 
 function ytDlpTrack(player, extractor, requestedBy, entry) {
-  const url = entry.webpage_url || entry.url || (entry.id
-    ? `https://www.youtube.com/watch?v=${entry.id}`
-    : null);
+  const rawUrl = entry.webpage_url || entry.url;
+  const url = /^https?:\/\//i.test(rawUrl || '')
+    ? rawUrl
+    : entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null;
   if (!url) return null;
 
   const durationSeconds = Number(entry.duration) || 0;
@@ -132,6 +134,32 @@ async function resolveBestTrack(track, player) {
   return { bridgedTrack, extractor, score: match.score };
 }
 
+async function findAlternateTracks(track, player) {
+  const extractor = player.extractors.resolve(YoutubeiExtractor.identifier);
+  if (!extractor) throw new Error('YouTube extractor is unavailable.');
+
+  let candidates = [];
+  try {
+    candidates = await searchWithYtDlp(track, player, extractor);
+  } catch (error) {
+    console.warn('[Music Alternatives] yt-dlp search failed:', error.message);
+  }
+  if (!candidates.length) candidates = await searchWithYoutubei(track, extractor);
+
+  const playingKey = keyForSong(track.bridgedTrack || track);
+  const seen = new Set([playingKey]);
+  return rankCandidates(track, candidates)
+    .filter(match => match.titleCoverage >= 0.35)
+    .map(match => match.candidate)
+    .filter(candidate => {
+      const key = keyForSong(candidate);
+      if (!candidate.url || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+}
+
 async function getCachedMatch(track, player) {
   const cacheKey = `${track.source}:${track.url}`;
   if (!matchCache.has(cacheKey)) {
@@ -186,6 +214,7 @@ function playbackSourceLabel(track) {
 }
 
 module.exports = {
+  findAlternateTracks,
   playbackSourceLabel,
   preloadSmartMatches,
   smartMusicBridge,

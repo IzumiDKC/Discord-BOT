@@ -1,8 +1,10 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { QueueRepeatMode } = require('discord-player');
-const { musicControls, nowPlayingEmbed, queueEmbed } = require('../../utils/musicUi');
+const { alternativesMenu, musicControls, nowPlayingEmbed, queueEmbed } = require('../../utils/musicUi');
 const { AUDIO_PRESETS, getAudioPreset, setAudioPreset } = require('../../utils/musicAudio');
 const { getMusicHealth } = require('../../utils/musicHealth');
+const { findAlternateTracks } = require('../../utils/smartMusicBridge');
+const { createAlternativeSession } = require('../../utils/musicAlternatives');
 
 function replyWithPreset(interaction, queue, preset) {
   setAudioPreset(queue, preset);
@@ -47,6 +49,7 @@ module.exports = {
     .addSubcommand(s => s.setName('queue').setDescription('Xem hàng chờ nhạc'))
     .addSubcommand(s => s.setName('nowplaying').setDescription('Xem bài đang phát'))
     .addSubcommand(s => s.setName('health').setDescription('Check voice ping and recent audio underruns'))
+    .addSubcommand(s => s.setName('alternatives').setDescription('Choose a different YouTube audio version of the current track'))
     .addSubcommand(s =>
       s.setName('volume')
         .setDescription('Đặt âm lượng từ 0 đến 100')
@@ -82,6 +85,9 @@ module.exports = {
       }
 
       case 'stop':
+        client.smartDj.stop(interaction.guildId);
+        await client.musicLibrary.clearQueue(interaction.guildId)
+          .catch(error => console.error('[Music Library]', error));
         queue.delete();
         return interaction.reply('⏹️ Đã dừng nhạc và xóa hàng chờ.');
 
@@ -153,6 +159,26 @@ module.exports = {
             + `max **${health.maxMissedFrames}** missed frames, `
             + `event-loop lag **${health.maxEventLoopLagMs} ms**`,
           ephemeral: true,
+        });
+      }
+
+      case 'alternatives': {
+        await interaction.deferReply({ ephemeral: true });
+        const currentTrack = queue.currentTrack;
+        if (!currentTrack) return interaction.editReply('No track is playing right now.');
+        const candidates = await findAlternateTracks(currentTrack, client.player);
+        if (queue.currentTrack !== currentTrack) return interaction.editReply('The playing track changed. Run this command again.');
+        if (!candidates.length) return interaction.editReply('No alternate audio versions were found.');
+        const sessionId = createAlternativeSession({
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+          currentTrack,
+          candidates,
+        });
+        return interaction.editReply({
+          content: `Choose a replacement for **${currentTrack.cleanTitle || currentTrack.title}**. This menu expires in 2 minutes.`,
+          components: alternativesMenu(sessionId, candidates),
+          allowedMentions: { parse: [] },
         });
       }
 

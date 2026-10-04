@@ -2,6 +2,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   EmbedBuilder,
 } = require('discord.js');
 const { QueueRepeatMode } = require('discord-player');
@@ -75,6 +76,7 @@ function progressLine(queue) {
 
 function nowPlayingEmbed(queue, track) {
   const source = track?.source || 'unknown';
+  const audioTrack = track?.bridgedTrack || track;
   return new EmbedBuilder()
     .setColor(COLORS.success)
     .setAuthor({ name: 'NOW PLAYING  •  hoshi ♡' })
@@ -85,10 +87,24 @@ function nowPlayingEmbed(queue, track) {
       { name: '🎧 Yêu cầu bởi', value: requesterLabel(track), inline: true },
       { name: '🔊 Âm lượng', value: `\`${queue.node.volume}%\``, inline: true },
       { name: '📜 Tiếp theo', value: `\`${queueSize(queue)} bài\``, inline: true },
+      { name: 'Audio source', value: audioTrack?.url ? `[${playbackSourceLabel(track)}](${audioTrack.url})` : playbackSourceLabel(track), inline: false },
     )
     .setFooter({ text: `${sourceIcon(source)} ${playbackSourceLabel(track)}  •  /music để điều khiển` })
     .setThumbnail(track.thumbnail || null)
     .setTimestamp();
+}
+
+function alternativesMenu(sessionId, candidates) {
+  return [new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`music:alternative:${sessionId}`)
+      .setPlaceholder('Choose the correct audio version')
+      .addOptions(candidates.map((track, index) => ({
+        label: truncate(track.cleanTitle || track.title || 'Unknown', 100),
+        description: truncate(`${track.author || 'Unknown artist'} • ${track.duration || 'Unknown length'}`, 100),
+        value: String(index),
+      })))
+  )];
 }
 
 function addedToQueueEmbed({
@@ -201,6 +217,7 @@ function statusEmbed(title, description, color = COLORS.neutral) {
 module.exports = {
   COLORS,
   addedToQueueEmbed,
+  alternativesMenu,
   musicRequestEmbed,
   musicControls,
   nowPlayingEmbed,
