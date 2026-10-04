@@ -1,12 +1,6 @@
 const { createTicket, closeTicket } = require('../utils/ticketManager');
 const { musicControls, queueEmbed } = require('../utils/musicUi');
 
-const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
-
-function isNormalizationEnabled(queue) {
-  return NORMALIZATION_FILTERS.every(filter => queue.filters.ffmpeg.filters.includes(filter));
-}
-
 async function handleMusicButton(interaction, client) {
   const action = interaction.customId.slice('music:'.length);
   const queue = client.player.nodes.get(interaction.guildId);
@@ -16,7 +10,7 @@ async function handleMusicButton(interaction, client) {
 
   if (action === 'queue') {
     return interaction.reply({
-      embeds: [queueEmbed(queue, isNormalizationEnabled)],
+      embeds: [queueEmbed(queue)],
       components: musicControls(),
       ephemeral: true,
     });

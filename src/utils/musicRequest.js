@@ -1,9 +1,9 @@
 const { QueryType } = require('discord-player');
 const { resolveMusicInput } = require('./musicSource');
 const { preloadSmartMatches, smartMusicBridge } = require('./smartMusicBridge');
+const { filtersForPreset, getAudioPreset } = require('./musicAudio');
 
 const DEFAULT_MUSIC_VOLUME = 55;
-const NORMALIZATION_FILTERS = ['normalizer2', 'softlimiter'];
 
 function shuffleTracks(tracks) {
   const shuffled = [...tracks];
@@ -16,6 +16,8 @@ function shuffleTracks(tracks) {
 
 async function playMusicRequest({ client, voiceChannel, textChannel, requester, query, shouldShuffle = false }) {
   const resolvedInput = resolveMusicInput(query);
+  const existingQueue = client.player.nodes.get(voiceChannel.guild.id);
+  const audioPreset = getAudioPreset(existingQueue);
   const playResult = await client.player.play(voiceChannel, resolvedInput.query, {
     requestedBy: requester,
     searchEngine: resolvedInput.searchEngine,
@@ -38,17 +40,17 @@ async function playMusicRequest({ client, voiceChannel, textChannel, requester, 
       metadata: {
         channel: textChannel,
         requestedBy: requester,
-        normalizationEnabled: true,
+        audioPreset,
       },
       selfDeaf: false,
       volume: DEFAULT_MUSIC_VOLUME,
-      defaultFFmpegFilters: NORMALIZATION_FILTERS,
+      defaultFFmpegFilters: filtersForPreset(audioPreset),
       leaveOnEmpty: true,
       leaveOnEmptyCooldown: 60_000,
       leaveOnEnd: false,
       leaveOnStop: true,
       leaveOnStopCooldown: 10_000,
-      bufferingTimeout: 30_000,
+      bufferingTimeout: 1_000,
       onBeforeCreateStream: smartMusicBridge,
       preferBridgedMetadata: true,
     },
@@ -58,9 +60,10 @@ async function playMusicRequest({ client, voiceChannel, textChannel, requester, 
   if (queue) {
     try {
       queue.setMetadata({
+        ...queue.metadata,
         channel: textChannel,
         requestedBy: requester,
-        normalizationEnabled: queue.metadata?.normalizationEnabled ?? true,
+        audioPreset: getAudioPreset(queue),
       });
     } catch (error) {
       console.warn('[Music Request] Metadata update failed:', error.message);

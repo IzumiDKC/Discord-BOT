@@ -6,6 +6,8 @@ const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { MusicPresence } = require('./src/utils/musicPresence');
 const { idleDisconnectMessage, MusicIdleManager } = require('./src/utils/musicIdle');
 const { musicControls, nowPlayingEmbed, statusEmbed } = require('./src/utils/musicUi');
+const { markActiveAudioPreset } = require('./src/utils/musicAudio');
+const { startMusicHealth, stopMusicHealth } = require('./src/utils/musicHealth');
 
 const client = new Client({
   intents: [
@@ -42,7 +44,11 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
     },
   });
 
+  client.player.events.on('connection', queue => startMusicHealth(queue));
+
   client.player.events.on('playerStart', (queue, track) => {
+    startMusicHealth(queue);
+    markActiveAudioPreset(queue);
     client.musicIdle.cancel(queue);
     client.musicPresence.setPlaying(queue.guild.id, track);
     queue.metadata?.channel?.send({
@@ -69,11 +75,13 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
   });
 
   client.player.events.on('queueDelete', queue => {
+    stopMusicHealth(queue);
     client.musicIdle.cancel(queue);
     client.musicPresence.clear(queue.guild.id);
   });
 
   client.player.events.on('disconnect', queue => {
+    stopMusicHealth(queue);
     client.musicIdle.cancel(queue);
     client.musicPresence.clear(queue.guild.id);
   });
