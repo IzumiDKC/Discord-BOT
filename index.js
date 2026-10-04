@@ -8,6 +8,8 @@ const { idleDisconnectMessage, MusicIdleManager } = require('./src/utils/musicId
 const { musicControls, nowPlayingEmbed, statusEmbed } = require('./src/utils/musicUi');
 const { markActiveAudioPreset } = require('./src/utils/musicAudio');
 const { startMusicHealth, stopMusicHealth } = require('./src/utils/musicHealth');
+const { MusicLibrary } = require('./src/utils/musicLibrary');
+const { SmartDj } = require('./src/utils/smartDj');
 
 const client = new Client({
   intents: [
@@ -23,6 +25,12 @@ client.commands = new Collection();
 client.player = new Player(client);
 client.musicPresence = new MusicPresence(client);
 client.musicIdle = new MusicIdleManager();
+client.musicLibrary = new MusicLibrary();
+client.smartDj = new SmartDj(client);
+
+function saveQueue(queue) {
+  client.musicLibrary.updateQueue(queue.guild.id, queue).catch(error => console.error('[Music Library]', error));
+}
 
 require('./src/handlers/commandHandler')(client);
 require('./src/handlers/eventHandler')(client);
@@ -48,14 +56,20 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
 
   client.player.events.on('playerStart', (queue, track) => {
     startMusicHealth(queue);
+    client.smartDj.markPlaying(queue.guild.id);
     markActiveAudioPreset(queue);
     client.musicIdle.cancel(queue);
     client.musicPresence.setPlaying(queue.guild.id, track);
+    client.musicLibrary.recordStarted(queue.guild.id, track, queue)
+      .catch(error => console.error('[Music Library]', error));
     queue.metadata?.channel?.send({
       embeds: [nowPlayingEmbed(queue, track)],
       components: musicControls(),
     }).catch(() => {});
   });
+
+  client.player.events.on('audioTrackAdd', saveQueue);
+  client.player.events.on('audioTracksAdd', saveQueue);
 
   client.player.events.on('playerPause', queue => {
     client.musicPresence.setPaused(queue.guild.id, true);
@@ -65,8 +79,12 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
     client.musicPresence.setPaused(queue.guild.id, false);
   });
 
-  client.player.events.on('emptyQueue', queue => {
+  client.player.events.on('emptyQueue', async queue => {
     if (queue.currentTrack) return;
+    if (await client.smartDj.refill(queue)) return;
+    if (queue.currentTrack || !queue.isEmpty()) return;
+    await client.musicLibrary.clearQueue(queue.guild.id)
+      .catch(error => console.error('[Music Library]', error));
     client.musicPresence.clear(queue.guild.id);
     client.musicIdle.schedule(queue);
     queue.metadata?.channel?.send({
@@ -88,6 +106,7 @@ process.on('uncaughtException', err => console.error('[Uncaught Exception]', err
 
   client.player.events.on('playerError', (queue, error, track) => {
     console.error('[Music Player Error]', error);
+    client.smartDj.markFailed(queue.guild.id, track);
     queue.metadata?.channel?.send({
       embeds: [statusEmbed(
         '⚠️ Không phát được bài này',

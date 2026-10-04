@@ -1,5 +1,35 @@
 const { createTicket, closeTicket } = require('../utils/ticketManager');
 const { musicControls, queueEmbed } = require('../utils/musicUi');
+const { takeAlternative } = require('../utils/musicAlternatives');
+const { QueueRepeatMode } = require('discord-player');
+
+async function handleAlternativeSelect(interaction, client) {
+  const queue = client.player.nodes.get(interaction.guildId);
+  const voiceId = interaction.member.voice?.channelId;
+  const botVoiceId = interaction.guild.members.me?.voice?.channelId;
+  if (!queue?.currentTrack || !voiceId || (botVoiceId && botVoiceId !== voiceId)) {
+    return interaction.reply({ content: 'Join the same voice channel as the bot first.', ephemeral: true });
+  }
+  const sessionId = interaction.customId.slice('music:alternative:'.length);
+  const result = takeAlternative(sessionId, interaction.values[0], {
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+    currentTrack: queue.currentTrack,
+  });
+  if (result.error) return interaction.reply({ content: result.error, ephemeral: true });
+  result.candidate.requestedBy = interaction.user;
+  queue.insertTrack(result.candidate, 0);
+  if (queue.repeatMode === QueueRepeatMode.TRACK) queue.setRepeatMode(QueueRepeatMode.OFF);
+  if (!queue.node.skip()) {
+    queue.node.remove(result.candidate);
+    return interaction.reply({ content: 'Could not replace the current track. Try again.', ephemeral: true });
+  }
+  return interaction.update({
+    content: `Switching to **${result.candidate.cleanTitle || result.candidate.title}**.`,
+    components: [],
+    allowedMentions: { parse: [] },
+  });
+}
 
 async function handleMusicButton(interaction, client) {
   const action = interaction.customId.slice('music:'.length);
@@ -32,6 +62,9 @@ async function handleMusicButton(interaction, client) {
     return interaction.reply({ content: skipped ? '⏭️ Đã chuyển bài.' : 'Không thể chuyển bài lúc này.', ephemeral: true });
   }
   if (action === 'stop') {
+    client.smartDj.stop(interaction.guildId);
+    await client.musicLibrary.clearQueue(interaction.guildId)
+      .catch(error => console.error('[Music Library]', error));
     queue.delete();
     return interaction.reply({ content: '⏹️ Đã dừng nhạc và xóa hàng chờ.', ephemeral: true });
   }
@@ -40,6 +73,17 @@ async function handleMusicButton(interaction, client) {
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('music:alternative:')) {
+      try {
+        await handleAlternativeSelect(interaction, client);
+      } catch (error) {
+        console.error('[Music Alternatives]', error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'Could not switch to that audio version.', ephemeral: true }).catch(() => {});
+        }
+      }
+      return;
+    }
     // --- Slash Commands ---
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -48,7 +92,11 @@ module.exports = {
         await command.execute(interaction, client);
       } catch (err) {
         console.error(err);
-        interaction.reply({ content: '❌ Có lỗi xảy ra.', ephemeral: true });
+        if (interaction.deferred) {
+          await interaction.editReply({ content: 'Could not complete this command.' }).catch(() => {});
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'Could not complete this command.', ephemeral: true }).catch(() => {});
+        }
       }
       return;
     }
