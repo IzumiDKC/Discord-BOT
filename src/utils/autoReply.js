@@ -84,7 +84,7 @@ function responseFor(intent, message, client) {
     case 'help':
       return {
         title: '✨ Momoka có thể giúp gì?',
-        description: '**Cú pháp nhanh:** `m now` • `m queue` • `m play` • `m controls`\n\n🎵 `/play` và `/music` — phát, xếp hàng và điều khiển nhạc\n🎫 `/ticket` — hỗ trợ ticket\n📡 `/ping` — kiểm tra độ trễ\nℹ️ `/info` — thông tin bot',
+        description: '**Cú pháp nhanh:** `m now` • `m queue` • `m play` • `m controls`\n\n🎵 `/play` và `/music` — phát, xếp hàng và điều khiển nhạc\n🎮 `/team` — tìm đồng đội chơi game\n🎫 `/ticket` — hỗ trợ ticket\n📡 `/ping` — kiểm tra độ trễ\nℹ️ `/info` — thông tin bot',
       };
     case 'identity':
       return { title: '🌸 Momoka', description: 'Mình là bot âm nhạc và tiện ích của server. Gõ `m help` hoặc mention mình khi cần nhé.' };
