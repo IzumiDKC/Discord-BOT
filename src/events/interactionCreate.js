@@ -2,6 +2,7 @@ const { createTicket, closeTicket } = require('../utils/ticketManager');
 const { musicControls, queueEmbed } = require('../utils/musicUi');
 const { takeAlternative } = require('../utils/musicAlternatives');
 const { QueueRepeatMode } = require('discord-player');
+const { handleTeamButton } = require('../utils/teamButtons');
 
 async function handleAlternativeSelect(interaction, client) {
   const queue = client.player.nodes.get(interaction.guildId);
@@ -103,6 +104,19 @@ module.exports = {
 
     // --- Button Interactions ---
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith('team:')) {
+        try {
+          await handleTeamButton(interaction, client);
+        } catch (error) {
+          console.error('[Team Button]', error);
+          if (interaction.deferred) {
+            await interaction.editReply('Could not update this team.').catch(() => {});
+          } else if (!interaction.replied) {
+            await interaction.reply({ content: 'Could not update this team.', ephemeral: true }).catch(() => {});
+          }
+        }
+        return;
+      }
       if (interaction.customId.startsWith('music:')) {
         await handleMusicButton(interaction, client);
         return;

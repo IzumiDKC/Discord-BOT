@@ -10,6 +10,7 @@ const { markActiveAudioPreset } = require('./src/utils/musicAudio');
 const { startMusicHealth, stopMusicHealth } = require('./src/utils/musicHealth');
 const { MusicLibrary } = require('./src/utils/musicLibrary');
 const { SmartDj } = require('./src/utils/smartDj');
+const { TeamManager } = require('./src/utils/teamManager');
 
 const client = new Client({
   intents: [
@@ -27,6 +28,7 @@ client.musicPresence = new MusicPresence(client);
 client.musicIdle = new MusicIdleManager();
 client.musicLibrary = new MusicLibrary();
 client.smartDj = new SmartDj(client);
+client.teamManager = new TeamManager();
 
 function saveQueue(queue) {
   client.musicLibrary.updateQueue(queue.guild.id, queue).catch(error => console.error('[Music Library]', error));
