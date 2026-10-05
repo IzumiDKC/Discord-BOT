@@ -1,6 +1,8 @@
 module.exports = {
   name: 'voiceStateUpdate',
-  async execute(oldState, newState) {
+  async execute(oldState, newState, client) {
+    await client.communityStore?.voiceState(oldState, newState)
+      .catch(error => console.warn('[Community] Voice credit failed:', error.message));
     const logChannelId = process.env.LOG_CHANNEL_ID;
     if (!logChannelId) return;
 

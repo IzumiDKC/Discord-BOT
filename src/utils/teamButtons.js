@@ -34,6 +34,10 @@ async function handleTeamButton(interaction, client) {
 
   await refreshTeamMessage(client, result.team)
     .catch(error => console.warn('[Team] Could not refresh card:', error.message));
+  if (result.code === 'joined') {
+    await client.communityStore?.awardTeam(interaction.guildId, userId, team.id, 'joined')
+      .catch(error => console.warn('[Community] Team XP failed:', error.message));
+  }
   const response = result.code === 'joined'
     ? result.team.status === 'full' ? 'You joined. The team is now full.' : 'You joined the team.'
     : result.code === 'left' ? 'You left the team.' : 'Team cancelled.';

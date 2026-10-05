@@ -1,6 +1,6 @@
 const { PermissionFlagsBits, SlashCommandBuilder, escapeMarkdown } = require('discord.js');
 const { buildTeam } = require('../../utils/teamManager');
-const { refreshTeamMessage, teamMessage } = require('../../utils/teamUi');
+const { refreshTeamMessage, teamCardPayload } = require('../../utils/teamUi');
 
 function teamLink(team) {
   return `https://discord.com/channels/${team.guildId}/${team.channelId}/${team.id}`;
@@ -62,7 +62,7 @@ module.exports = {
       startsIn: interaction.options.getInteger('starts_in') ?? 0,
     });
     await interaction.deferReply({ ephemeral: true });
-    const message = await interaction.channel.send(teamMessage(team));
+    const message = await interaction.channel.send(await teamCardPayload(client, team));
     let saved;
     try {
       saved = await manager.create(team, message.id);
@@ -70,6 +70,8 @@ module.exports = {
       await message.delete().catch(() => {});
       return interaction.editReply(error.message);
     }
+    await client.communityStore?.awardTeam(interaction.guildId, interaction.user.id, saved.id, 'hosted')
+      .catch(error => console.warn('[Community] Team XP failed:', error.message));
     return interaction.editReply({
       content: `Team posted: ${teamLink(saved)}`,
       allowedMentions: { parse: [] },

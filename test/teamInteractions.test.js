@@ -6,6 +6,7 @@ const path = require('node:path');
 const teamCommand = require('../src/commands/utility/team');
 const interactionCreate = require('../src/events/interactionCreate');
 const { TeamManager } = require('../src/utils/teamManager');
+const { CommunityStore } = require('../src/utils/communityStore');
 
 function setup(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'discordbot-team-interaction-'));
@@ -32,6 +33,7 @@ function setup(t) {
   };
   const client = {
     teamManager: new TeamManager(path.join(dir, 'teams.json')),
+    communityStore: new CommunityStore(path.join(dir, 'community.json')),
     channels: { cache: new Map([['channel-1', channel]]), fetch: async () => channel },
   };
   return { channel, client, deleted, edits, sent, file: path.join(dir, 'teams.json') };
@@ -79,7 +81,9 @@ test('/team create posts a usable card, lists it, and cleans up a duplicate post
   const first = commandInteraction(channel, 'create');
   await teamCommand.execute(first.interaction, client);
   assert.equal(sent.length, 1);
+  assert.equal(sent[0].files[0].name, 'team.png');
   assert.equal(client.teamManager.get('guild-1', 'message-1').hostId, 'host-1');
+  assert.equal(client.communityStore.profile('guild-1', 'host-1').xp, 30);
   assert.match(first.replies.at(-1).content, /Team posted/);
 
   const listing = commandInteraction(channel, 'list');
@@ -99,6 +103,7 @@ test('button joins a team, blocks unauthorized cancellation, and host can cancel
   await interactionCreate.execute(join.interaction, client);
   assert.match(join.replies.at(-1), /now full/);
   assert.equal(client.teamManager.get('guild-1', 'message-1').status, 'full');
+  assert.equal(client.communityStore.profile('guild-1', 'member-1').xp, 15);
   assert.equal(edits.at(-1).components[0].components[0].data.disabled, true);
 
   const other = buttonInteraction(channel, 'message-1', 'cancel', 'member-1');
