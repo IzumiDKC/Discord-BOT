@@ -1,4 +1,5 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } = require('discord.js');
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } = require('discord.js');
+const { renderTeamCard, resolveUsers } = require('./visualCards');
 
 const COLORS = { open: 0x5865F2, full: 0x57F287, cancelled: 0x747F8D, expired: 0x747F8D };
 const pendingEdits = new Map();
@@ -34,6 +35,28 @@ function teamMessage(team) {
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
 
+async function teamCardPayload(client, team, editing = false) {
+  const fallback = teamMessage(team);
+  try {
+    const users = await resolveUsers(client, team.members);
+    const image = await renderTeamCard(team, users);
+    const embed = new EmbedBuilder()
+      .setColor(COLORS[team.status] || COLORS.open)
+      .setTitle(`TEAM UP | ${escapeMarkdown(team.game)}`)
+      .setDescription(`${team.members.length}/${team.slots} players | ${team.status.toUpperCase()} | ${team.startsAt <= team.createdAt ? 'Starts now' : `<t:${Math.floor(team.startsAt / 1000)}:R>`}\nRank: ${escapeMarkdown(team.rank || 'Any')} | Role: ${escapeMarkdown(team.role || 'Any')}\nPlayers: ${team.members.map(id => `<@${id}>`).join(', ')}`)
+      .setImage('attachment://team.png');
+    return {
+      ...fallback,
+      embeds: [embed],
+      files: [new AttachmentBuilder(image, { name: 'team.png' })],
+      ...(editing ? { attachments: [] } : {}),
+    };
+  } catch (error) {
+    console.warn('[Team] Image render failed; using text card:', error.message);
+    return { ...fallback, ...(editing ? { attachments: [] } : {}) };
+  }
+}
+
 async function teamChannel(client, team) {
   const channel = client.channels.cache.get(team.channelId)
     || await client.channels.fetch(team.channelId);
@@ -47,7 +70,7 @@ async function refreshTeamMessage(client, team) {
     const latest = client.teamManager?.get(team.guildId, team.id) || team;
     const channel = await teamChannel(client, latest);
     const message = await channel.messages.fetch(team.id);
-    return message.edit(teamMessage(latest));
+    return message.edit(await teamCardPayload(client, latest, true));
   });
   pendingEdits.set(team.id, current);
   try {
@@ -66,4 +89,4 @@ async function sendStartReminder(client, team) {
   });
 }
 
-module.exports = { refreshTeamMessage, sendStartReminder, teamMessage };
+module.exports = { refreshTeamMessage, sendStartReminder, teamMessage, teamCardPayload };

@@ -3,6 +3,7 @@ const { musicControls, queueEmbed } = require('../utils/musicUi');
 const { takeAlternative } = require('../utils/musicAlternatives');
 const { QueueRepeatMode } = require('discord-player');
 const { handleTeamButton } = require('../utils/teamButtons');
+const { handleWelcomeButton } = require('../utils/welcomeUi');
 
 async function handleAlternativeSelect(interaction, client) {
   const queue = client.player.nodes.get(interaction.guildId);
@@ -104,6 +105,19 @@ module.exports = {
 
     // --- Button Interactions ---
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith('welcome:role:')) {
+        try {
+          await handleWelcomeButton(interaction, client);
+        } catch (error) {
+          console.error('[Welcome Button]', error);
+          if (interaction.deferred) {
+            await interaction.editReply('Could not update that role.').catch(() => {});
+          } else if (!interaction.replied) {
+            await interaction.reply({ content: 'Could not update that role.', ephemeral: true }).catch(() => {});
+          }
+        }
+        return;
+      }
       if (interaction.customId.startsWith('team:')) {
         try {
           await handleTeamButton(interaction, client);
