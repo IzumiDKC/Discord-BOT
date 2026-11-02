@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Configure the Python-free yt-dlp binary before youtube-dl-exec is imported.
+require('./src/utils/youtubeDlRuntime').configureYoutubeDlRuntime();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');

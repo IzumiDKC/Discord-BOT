@@ -27,3 +27,5 @@ Install the updated dependencies (`npm install`), register commands with `npm ru
 - Staff with **Manage Server** can use `/welcome set channel:#welcome`, `/welcome preview`, and `/welcome off`. Use `/welcome role_add role:<role>` for up to five self-select roles, `/welcome role_remove` to remove one, and `/welcome roles` to inspect them. The bot needs **Manage Roles** and its highest role must be above each offered role. Privileged and managed roles are blocked.
 
 Community progress and welcome settings are stored in `data/community.json` (ignored by Git). Back this file up with the other `data/` files before replacing the VPS. All current cards are generated locally; no image or activity data is sent to an AI service.
+
+On Linux x64/arm64, the bot uses the standalone `yt-dlp_linux` release in `data/bin/` instead of the Python-dependent zipimport build. This avoids breaking playback when yt-dlp raises its minimum Python version. The extractor updates this binary when the bot starts and periodically afterward. Keep outbound access to GitHub releases available, or provide a compatible binary via `YOUTUBE_DL_DIR` and `YOUTUBE_DL_FILENAME`.
