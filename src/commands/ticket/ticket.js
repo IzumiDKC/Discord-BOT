@@ -5,10 +5,9 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionFlagsBits,
-  ChannelType,
 } = require('discord.js');
 
-const { closeTicket } = require('../../utils/ticketManager');
+const { closeTicket, isTicketOwner } = require('../../utils/ticketManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -34,7 +33,7 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'panel') {
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
         return interaction.reply({ content: '❌ Bạn không có quyền dùng lệnh này.', ephemeral: true });
       }
 
@@ -61,9 +60,13 @@ module.exports = {
     }
 
     if (sub === 'add') {
-      const user = interaction.options.getUser('user');
-      if (!interaction.channel.name.startsWith('ticket-')) {
+      const user = interaction.options.getUser('user', true);
+      if (!interaction.channel?.name?.startsWith('ticket-')) {
         return interaction.reply({ content: '❌ Lệnh này chỉ dùng trong kênh ticket.', ephemeral: true });
+      }
+      const isStaff = interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels);
+      if (!isStaff && !isTicketOwner(interaction.channel, interaction.user.id)) {
+        return interaction.reply({ content: '❌ Chỉ chủ ticket hoặc quản trị viên mới có thể thêm người.', ephemeral: true });
       }
       await interaction.channel.permissionOverwrites.edit(user.id, {
         ViewChannel: true,

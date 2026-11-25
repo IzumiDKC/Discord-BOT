@@ -7,26 +7,46 @@ const {
   ButtonStyle,
 } = require('discord.js');
 
-// Lưu danh sách ticket đang mở: userId -> channelId
 const openTickets = new Map();
+
+function ownerTag(userId) {
+  return `ticket-owner:${userId}`;
+}
+
+function isTicketOwner(channel, userId) {
+  if (!channel || !userId) return false;
+  if (openTickets.get(userId) === channel.id) return true;
+  return Boolean(channel.topic?.includes(ownerTag(userId)));
+}
+
+function findExistingTicket(guild, userId) {
+  const cachedId = openTickets.get(userId);
+  if (cachedId) {
+    const cached = guild.channels.cache.get(cachedId);
+    if (cached) return cached;
+    openTickets.delete(userId);
+  }
+  const byTopic = guild.channels.cache.find(
+    c => c.type === ChannelType.GuildText && c.name.startsWith('ticket-') && c.topic?.includes(ownerTag(userId))
+  );
+  if (byTopic) openTickets.set(userId, byTopic.id);
+  return byTopic || null;
+}
 
 async function createTicket(interaction) {
   const guild = interaction.guild;
   const user = interaction.user;
 
-  // Kiểm tra đã có ticket chưa
-  if (openTickets.has(user.id)) {
-    const existing = guild.channels.cache.get(openTickets.get(user.id));
-    if (existing) {
-      return interaction.reply({
-        content: `❌ Bạn đã có ticket rồi: ${existing}`,
-        ephemeral: true,
-      });
-    }
-    openTickets.delete(user.id); // channel bị xóa thủ công → reset
+  const existing = findExistingTicket(guild, user.id);
+  if (existing) {
+    return interaction.reply({
+      content: `❌ Bạn đã có ticket rồi: ${existing}`,
+      ephemeral: true,
+    });
   }
 
-  // Tìm hoặc tạo category "Tickets"
+  await interaction.deferReply({ ephemeral: true });
+
   let category = guild.channels.cache.find(
     c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === 'tickets'
   );
@@ -37,15 +57,15 @@ async function createTicket(interaction) {
     });
   }
 
-  // Đếm số ticket để đặt tên
-  const count = guild.channels.cache.filter(c => c.name.startsWith('ticket-')).size + 1;
-  const channelName = `ticket-${user.username}-${String(count).padStart(3, '0')}`;
+  const safeName = user.username.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20) || user.id;
+  const suffix = user.id.slice(-4);
+  const channelName = `ticket-${safeName}-${suffix}`;
 
-  // Tạo channel với permission riêng
   const ticketChannel = await guild.channels.create({
     name: channelName,
     type: ChannelType.GuildText,
     parent: category.id,
+    topic: ownerTag(user.id),
     permissionOverwrites: [
       {
         id: guild.roles.everyone,
@@ -64,10 +84,9 @@ async function createTicket(interaction) {
 
   openTickets.set(user.id, ticketChannel.id);
 
-  // Gửi embed chào mừng trong ticket
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(`🎫 Ticket #${String(count).padStart(3, '0')}`)
+    .setTitle(`🎫 Ticket #${suffix}`)
     .setDescription(`Chào ${user}!\nHãy mô tả vấn đề của bạn, chúng tôi sẽ hỗ trợ sớm nhất.`)
     .setFooter({ text: 'Nhấn "Đóng Ticket" khi vấn đề đã được giải quyết.' })
     .setTimestamp();
@@ -82,20 +101,23 @@ async function createTicket(interaction) {
 
   await ticketChannel.send({ content: `${user}`, embeds: [embed], components: [row] });
 
-  await interaction.reply({
+  await interaction.editReply({
     content: `✅ Ticket đã được tạo: ${ticketChannel}`,
-    ephemeral: true,
   });
 }
 
 async function closeTicket(interaction) {
   const channel = interaction.channel;
 
-  if (!channel.name.startsWith('ticket-')) {
+  if (!channel?.name?.startsWith('ticket-')) {
     return interaction.reply({ content: '❌ Kênh này không phải ticket.', ephemeral: true });
   }
 
-  // Tìm userId của chủ ticket và xóa khỏi map
+  const isStaff = interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels);
+  if (!isStaff && !isTicketOwner(channel, interaction.user.id)) {
+    return interaction.reply({ content: '❌ Chỉ chủ ticket hoặc quản trị viên mới có thể đóng ticket.', ephemeral: true });
+  }
+
   for (const [userId, channelId] of openTickets.entries()) {
     if (channelId === channel.id) {
       openTickets.delete(userId);
@@ -110,7 +132,7 @@ async function closeTicket(interaction) {
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });
-  setTimeout(() => channel.delete().catch(() => {}), 5000);
+  setTimeout(() => channel.delete().catch(() => {}), 5000).unref?.();
 }
 
-module.exports = { createTicket, closeTicket, openTickets };
+module.exports = { createTicket, closeTicket, isTicketOwner, openTickets };

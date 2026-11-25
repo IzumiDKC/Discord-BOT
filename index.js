@@ -1,6 +1,6 @@
 require('dotenv').config();
-// Configure the Python-free yt-dlp binary before youtube-dl-exec is imported.
-require('./src/utils/youtubeDlRuntime').configureYoutubeDlRuntime();
+const { configureYoutubeDlRuntime, ensureYoutubeDlBinary } = require('./src/utils/youtubeDlRuntime');
+configureYoutubeDlRuntime();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
@@ -12,6 +12,7 @@ const { markActiveAudioPreset } = require('./src/utils/musicAudio');
 const { startMusicHealth, stopMusicHealth } = require('./src/utils/musicHealth');
 const { MusicLibrary } = require('./src/utils/musicLibrary');
 const { SmartDj } = require('./src/utils/smartDj');
+const { createYoutubeDlStream } = require('./src/utils/smartMusicBridge');
 const { TeamManager } = require('./src/utils/teamManager');
 const { CommunityStore } = require('./src/utils/communityStore');
 
@@ -41,17 +42,45 @@ function saveQueue(queue) {
 require('./src/handlers/commandHandler')(client);
 require('./src/handlers/eventHandler')(client);
 
-// Prevent crash on unhandled errors
 process.on('unhandledRejection', err => console.error('[Unhandled Rejection]', err));
 process.on('uncaughtException', err => console.error('[Uncaught Exception]', err));
 
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Shutdown] Received ${signal}, cleaning up...`);
+  try {
+    for (const queue of client.player.nodes.cache.values()) {
+      stopMusicHealth(queue);
+      client.musicIdle.cancel(queue);
+      queue.delete();
+    }
+    await Promise.allSettled([
+      client.musicLibrary.pending,
+      client.teamManager.pending,
+      client.communityStore.pending,
+    ]);
+    client.destroy();
+  } finally {
+    process.exit(0);
+  }
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+
 (async () => {
+  await ensureYoutubeDlBinary().catch(error => {
+    console.warn('[yt-dlp] Startup binary check failed:', error.message);
+  });
   await client.player.extractors.loadMulti(DefaultExtractors);
   await client.player.extractors.register(YoutubeiExtractor, {
-    useYoutubeDL: true,
+    useYoutubeDL: false,
     disablePlayer: true,
     logLevel: 'LOW',
     slicePlaylist: false,
+    createStream: track => createYoutubeDlStream(track),
     streamOptions: {
       useClient: 'WEB',
       highWaterMark: 1 << 25,

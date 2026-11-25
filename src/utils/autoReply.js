@@ -110,6 +110,12 @@ function createAutoReply(message, client, now = Date.now()) {
   const cooldownKey = `${message.guildId || 'dm'}:${message.author.id}`;
   const lastReply = cooldowns.get(cooldownKey) || 0;
   if (now - lastReply < COOLDOWN_MS) return null;
+  if (cooldowns.size >= 500) {
+    for (const [k, ts] of cooldowns) {
+      if (now - ts >= COOLDOWN_MS) cooldowns.delete(k);
+    }
+    if (cooldowns.size >= 500) cooldowns.delete(cooldowns.keys().next().value);
+  }
   cooldowns.set(cooldownKey, now);
 
   const response = responseFor(intent, message, client);

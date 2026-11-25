@@ -27,6 +27,7 @@ function sourceColor(source) {
 function sourceIcon(source) {
   return {
     apple_music: '🍎',
+    direct: '🔗',
     soundcloud: '☁️',
     spotify: '🟢',
     youtube: '🔴',

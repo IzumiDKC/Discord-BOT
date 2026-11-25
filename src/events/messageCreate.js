@@ -2,7 +2,7 @@ const { createAutoReply } = require('../utils/autoReply');
 const { playMusicRequest } = require('../utils/musicRequest');
 const { musicControls, musicRequestEmbed, statusEmbed } = require('../utils/musicUi');
 
-const MUSIC_REQUEST_CHANNEL_ID = '1299428445469675561';
+const MUSIC_REQUEST_CHANNEL_ID = process.env.MUSIC_REQUEST_CHANNEL_ID || '1299428445469675561';
 const pendingRequests = new Map();
 const CUSTOM_EMOJI = /<a?:[a-zA-Z0-9_]+:\d+>/g;
 const UNICODE_EMOJI = /[#*0-9]\uFE0F?\u20E3|[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\uFE0E\uFE0F\u200D\u20E3]/gu;

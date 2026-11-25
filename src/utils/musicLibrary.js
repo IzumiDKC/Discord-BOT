@@ -24,10 +24,15 @@ function songFromTrack(track) {
 function keyForSong(song) {
   try {
     const url = new URL(song.url);
-    if (url.hostname.endsWith('youtube.com') || url.hostname === 'youtu.be') {
-      return url.searchParams.get('v') || url.pathname.split('/').filter(Boolean)[0] || song.url;
+    const host = url.hostname.toLowerCase();
+    if (host.endsWith('youtube.com') || host === 'youtu.be' || host === 'www.youtu.be') {
+      const fromV = url.searchParams.get('v');
+      if (fromV) return fromV;
+      const parts = url.pathname.split('/').filter(Boolean);
+      if (['shorts', 'live', 'embed', 'v'].includes(parts[0]) && parts[1]) return parts[1];
+      return parts[0] || song.url;
     }
-    return `${url.hostname}${url.pathname}`;
+    return `${host}${url.pathname}`;
   } catch {
     return song.url;
   }

@@ -55,6 +55,16 @@ async function limitedRequest(guildId, userId, request) {
   if (now - (recentCalls.get(key) || 0) < COOLDOWN_MS) {
     throw new Error('Please wait 30 seconds before another AI request.');
   }
+  if (recentCalls.size >= 500) {
+    for (const [k, ts] of recentCalls) {
+      if (now - ts >= COOLDOWN_MS) recentCalls.delete(k);
+    }
+  }
+  if (dailyCalls.size >= 200) {
+    for (const [gId, info] of dailyCalls) {
+      if (info.day !== day) dailyCalls.delete(gId);
+    }
+  }
   recentCalls.set(key, now);
   dailyCalls.set(guildId, { day, count: usage?.day === day ? usage.count + 1 : 1 });
   activeGuilds.add(guildId);
